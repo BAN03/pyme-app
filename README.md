@@ -1,56 +1,91 @@
-# Welcome to your Expo app 👋
+# Pyme App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil **offline-first** para pequeños emprendimientos y jóvenes que quieren ordenar su
+negocio sin un punto de venta: insumos, gastos, productos más vendidos, clientes (CRM) y métricas
+visuales de ingresos y egresos.
 
-## Get started
+Hecha con **Expo SDK 58**, **React Native 0.88**, **TypeScript** y **SQLite** local.
 
-1. Install dependencies
+## Funcionalidad
 
-   ```bash
-   npm install
-   ```
+- **Inicio (métricas)**: ingresos, egresos, utilidad, margen, ticket promedio, gráfica de 6 meses,
+  productos más vendidos y alertas de stock bajo. Selector de mes.
+- **Movimientos**: ventas y gastos del mes, con totales y eliminación (las ventas devuelven stock).
+- **Catálogo**: productos (precio, costo, stock, stock mínimo, SKU) e insumos (stock, costo unitario,
+  compras que suman existencias y opcionalmente registran el gasto).
+- **Clientes (CRM)**: datos de contacto, notas, número de compras, total gastado y última compra.
+- **Ajustes**: datos del negocio, moneda, equipo (dueño/empleados), carga de datos de ejemplo y
+  borrado total.
 
-2. Start the app
+Todo funciona sin internet. La base de datos vive en el dispositivo.
 
-   ```bash
-   npx expo start
-   ```
+## Requisitos
 
-In the output, you'll find options to open the app in a
+- Node.js 22+
+- Android Studio con un emulador, o un teléfono con **Expo Go** (SDK 58)
+- Opcional para builds nativos: JDK 17+ y Android SDK
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Puesta en marcha
 
 ```bash
-npm run reset-project
+npm install
+npx expo start          # luego escanea el QR con Expo Go o pulsa "a" para Android
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Comandos útiles:
 
-### Other setup steps
+```bash
+npx expo start --android   # abrir en el emulador de Android
+npx expo lint              # ESLint (reglas de React Compiler)
+npx tsc --noEmit           # verificación de tipos
+npx expo-doctor            # diagnóstico de dependencias y configuración
+npx expo install <pkg>     # instalar dependencias compatibles con el SDK
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+> Si agregas una librería con código nativo que no esté en Expo Go, necesitas un development build:
+> `npx expo run:android` o `eas build --profile development`.
 
-## Learn more
+## Estructura
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+src/
+  app/                 rutas de Expo Router (cada archivo es una pantalla)
+    (tabs)/            Inicio, Movimientos, Catálogo, Clientes, Ajustes
+    venta/nueva.tsx    formulario de venta (productos o monto libre)
+    gasto/form.tsx     alta y edición de gastos
+    producto/form.tsx  alta y edición de productos
+    insumo/form.tsx    alta y edición de insumos
+    insumo/compra.tsx  compra de insumo (stock + gasto)
+    cliente/form.tsx   alta y edición de clientes
+  components/ui/       componentes reutilizables (botones, tarjetas, campos, etc.)
+  components/charts/   gráfica de barras con react-native-svg
+  db/
+    schema.ts          esquema SQLite, migraciones y reset
+    types.ts           modelos de dominio
+    mappers.ts         conversión de filas snake_case a modelos
+    repos/             acceso a datos (productos, ventas, gastos, métricas, demo…)
+  hooks/               useQuery / useBusinessQuery / tema
+  lib/                 dinero (centavos) y fechas locales
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Modelo de datos
 
-## Join the community
+- El **SQLite local es la fuente de verdad**; la app nunca depende de la red.
+- Dinero en **centavos enteros**; fechas como `YYYY-MM-DD` locales.
+- IDs **UUID**, y desde el primer día cada tabla lleva `created_at`, `updated_at`, `deleted_at`
+  (borrado lógico) y `device_id`, para que el respaldo/sincronización futuro no obligue a migrar.
+- Migraciones versionadas con `PRAGMA user_version` en `src/db/schema.ts`.
 
-Join our community of developers creating universal apps.
+## Roadmap (Fase 2)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. **Inicio de sesión con Google** (`expo-auth-session` + Google OAuth).
+2. **Respaldo en Google Drive**: subir una copia de `pyme.db` (o un volcado JSON) a una carpeta de
+   Drive del dueño, y restaurarla en otro dispositivo con la misma cuenta.
+3. **Empleados**: el dueño comparte su carpeta de Drive con las cuentas de sus empleados; los
+   cambios que hagan se suben a la misma copia. Requiere resolución de conflictos (por `updated_at`
+   y `device_id`) y verificación de la app ante Google.
+
+## Notas
+
+- La app no incluye punto de venta ni cobros: solo registro y análisis.
+- Los datos se pierden si se desinstala la app sin respaldo (Fase 2).
