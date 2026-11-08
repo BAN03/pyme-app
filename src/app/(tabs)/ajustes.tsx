@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 
+import { GoogleDriveCard } from '@/components/backup/google-drive-card';
 import { AppText } from '@/components/ui/app-text';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -140,36 +141,7 @@ export default function SettingsScreen() {
       )}
 
       <SectionTitle title="Cuenta y respaldo" />
-      <Card style={styles.form}>
-        <View style={styles.rowBetween}>
-          <View style={styles.row}>
-            <View style={[styles.googleIcon, { backgroundColor: theme.backgroundElement }]}>
-              <Ionicons name="logo-google" size={20} color={theme.text} />
-            </View>
-            <View>
-              <AppText variant="bodyStrong">Google Drive</AppText>
-              <AppText variant="caption" color="textSecondary">
-                Respaldo y sincronización
-              </AppText>
-            </View>
-          </View>
-          <Badge label="Fase 2" tone="primary" />
-        </View>
-
-        <AppText variant="small" color="textSecondary">
-          Tus datos ya se guardan en este dispositivo y la app funciona sin internet. En la
-          siguiente fase conectarás tu cuenta de Google para subir una copia de la base de datos a
-          Drive, recuperarla en otro teléfono y compartir el negocio con tus empleados.
-        </AppText>
-
-        <Button
-          title="Conectar con Google"
-          variant="secondary"
-          disabled
-          icon={<Ionicons name="logo-google" size={18} color={theme.text} />}
-          onPress={() => {}}
-        />
-      </Card>
+      <GoogleDriveCard />
 
       <SectionTitle title={`Equipo (${employees.length})`} />
       <Card padded={false}>
@@ -361,24 +333,6 @@ const styles = StyleSheet.create({
   },
   fieldGap: {
     gap: 6,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  googleIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   emptyTeam: {
     padding: 16,

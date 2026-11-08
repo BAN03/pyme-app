@@ -100,6 +100,16 @@ export function formatDateShort(isoDate: string): string {
   return `${day} ${MONTHS_SHORT[month - 1]}`;
 }
 
+/** Formats an ISO timestamp in local time, e.g. "7 nov 2026 · 18:30". */
+export function formatDateTime(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return isoTimestamp;
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${formatDate(toISODate(date))} · ${hours}:${minutes}`;
+}
+
 export function relativeDayLabel(isoDate: string): string | null {
   const today = todayISO();
   if (isoDate === today) return 'Hoy';
