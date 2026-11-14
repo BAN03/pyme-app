@@ -22,6 +22,7 @@ import {
   parseMoney,
   parseQuantity,
 } from '@/lib/money';
+import { validateExpenseInput, addValidationError } from '@/lib/validation';
 
 export default function SupplyPurchaseScreen() {
   const theme = useTheme();
@@ -76,6 +77,7 @@ function SupplyPurchaseForm({ business, supply }: { business: Business; supply: 
   const [note, setNote] = useState('');
   const [recordExpense, setRecordExpense] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const currency = business.currency;
   const quantityValue = parseQuantity(quantity);
@@ -83,11 +85,23 @@ function SupplyPurchaseForm({ business, supply }: { business: Business; supply: 
   const unitCostPreview =
     quantityValue > 0 ? Math.round(totalCostCents / quantityValue) : supply.unitCostCents;
 
-  const save = async () => {
+  const validate = () => {
+    const result = validateExpenseInput({
+      category: 'Insumos',
+      description: `Compra de ${supply.name}`,
+      amountCents: totalCostCents,
+      date,
+      note,
+    });
+    setErrors(result.errors);
     if (quantityValue <= 0) {
-      Alert.alert('Cantidad inválida', 'Escribe una cantidad mayor que cero.');
-      return;
+      addValidationError(result, 'quantity', 'La cantidad debe ser mayor que cero.');
     }
+    return result.valid;
+  };
+
+  const save = async () => {
+    if (!validate()) return;
 
     setSaving(true);
     try {
@@ -96,7 +110,7 @@ function SupplyPurchaseForm({ business, supply }: { business: Business; supply: 
         quantity: quantityValue,
         totalCostCents,
         date,
-        note: note || null,
+        note: note.trim() || null,
         recordExpense,
       });
       router.back();
@@ -133,6 +147,7 @@ function SupplyPurchaseForm({ business, supply }: { business: Business; supply: 
           keyboardType="decimal-pad"
           suffix={supply.unit}
           containerStyle={styles.flex}
+          error={errors.quantity}
         />
         <TextField
           label="Costo total"
@@ -142,6 +157,7 @@ function SupplyPurchaseForm({ business, supply }: { business: Business; supply: 
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           containerStyle={styles.flex}
+          error={errors.amountCents}
         />
       </View>
 

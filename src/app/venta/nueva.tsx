@@ -20,6 +20,7 @@ import { useBusinessQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { todayISO } from '@/lib/date';
 import { formatMoney, currencySymbol, parseMoney } from '@/lib/money';
+import { validateSaleInput } from '@/lib/validation';
 
 type Mode = 'productos' | 'libre';
 
@@ -63,6 +64,7 @@ export default function NewSaleScreen() {
   const [items, setItems] = useState<DraftItem[]>([]);
   const [freeTotal, setFreeTotal] = useState('');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const addProduct = (productId: string) => {
     const product = products.find((candidate) => candidate.id === productId);
@@ -110,17 +112,18 @@ export default function NewSaleScreen() {
   const freeTotalCents = parseMoney(freeTotal);
   const total = mode === 'productos' ? itemsTotal : freeTotalCents;
 
+  const validate = () => {
+    const result = validateSaleInput({
+      freeTotalCents: mode === 'libre' ? freeTotalCents : undefined,
+      items: mode === 'productos' ? items : undefined,
+    });
+    setErrors(result.errors);
+    return result.valid;
+  };
+
   const save = async () => {
     if (!business) return;
-
-    if (mode === 'productos' && items.length === 0) {
-      Alert.alert('Agrega productos', 'Selecciona al menos un producto para registrar la venta.');
-      return;
-    }
-    if (mode === 'libre' && freeTotalCents <= 0) {
-      Alert.alert('Falta el monto', 'Escribe cuánto vendiste.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
@@ -128,7 +131,7 @@ export default function NewSaleScreen() {
         date,
         customerId: customerId || null,
         paymentMethod,
-        note: note || null,
+        note: note.trim() || null,
         items:
           mode === 'productos'
             ? items.map((item) => ({
@@ -209,6 +212,7 @@ export default function NewSaleScreen() {
                 })}
               </View>
             )}
+            {errors.freeTotalCents && <AppText variant="caption" color="danger">{errors.freeTotalCents}</AppText>}
           </View>
 
           {items.length > 0 ? (
@@ -268,6 +272,7 @@ export default function NewSaleScreen() {
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           hint="Úsalo cuando no quieras detallar los productos."
+          error={errors.freeTotalCents}
         />
       )}
 

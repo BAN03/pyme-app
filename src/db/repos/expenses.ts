@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapExpense, type ExpenseRow } from '../mappers';
 import type { Expense, ExpenseInput } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 export async function listExpenses(
   db: SQLiteDatabase,
@@ -53,6 +54,7 @@ export async function createExpense(
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -73,6 +75,7 @@ export async function updateExpense(
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteExpense(db: SQLiteDatabase, id: string): Promise<void> {
@@ -83,4 +86,5 @@ export async function deleteExpense(db: SQLiteDatabase, id: string): Promise<voi
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }

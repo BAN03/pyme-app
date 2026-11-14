@@ -18,6 +18,7 @@ import type { Business, Supply } from '@/db/types';
 import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { centsToInput, currencySymbol, parseMoney, parseQuantity } from '@/lib/money';
+import { validateSupplyInput } from '@/lib/validation';
 
 export default function SupplyFormScreen() {
   const theme = useTheme();
@@ -56,20 +57,30 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
   const [stock, setStock] = useState(supply ? String(supply.stock) : '');
   const [minStock, setMinStock] = useState(supply ? String(supply.minStock) : '');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const currency = business.currency;
 
+  const validate = () => {
+    const result = validateSupplyInput({
+      name,
+      unit,
+      unitCostCents: parseMoney(unitCost),
+      stock: parseQuantity(stock),
+      minStock: parseQuantity(minStock),
+    });
+    setErrors(result.errors);
+    return result.valid;
+  };
+
   const save = async () => {
-    if (!name.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre del insumo.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       const input = {
-        name,
-        unit: unit || 'pza',
+        name: name.trim(),
+        unit: unit.trim() || 'pza',
         stock: parseQuantity(stock),
         minStock: parseQuantity(minStock),
         unitCostCents: parseMoney(unitCost),
@@ -120,7 +131,13 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
           />
         </View>
       }>
-      <TextField label="Nombre" value={name} onChangeText={setName} placeholder="Ej. Café en grano" />
+      <TextField
+        label="Nombre"
+        value={name}
+        onChangeText={setName}
+        placeholder="Ej. Café en grano"
+        error={errors.name}
+      />
 
       <View style={styles.row}>
         <TextField
@@ -130,6 +147,7 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
           placeholder="kg, L, pza"
           autoCapitalize="none"
           containerStyle={styles.flex}
+          error={errors.unit}
         />
         <TextField
           label="Costo por unidad"
@@ -139,6 +157,7 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           containerStyle={styles.flex}
+          error={errors.unitCostCents}
         />
       </View>
 
@@ -150,6 +169,7 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
           placeholder="0"
           keyboardType="decimal-pad"
           containerStyle={styles.flex}
+          error={errors.stock}
         />
         <TextField
           label="Stock mínimo"
@@ -158,6 +178,7 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
           placeholder="0"
           keyboardType="decimal-pad"
           containerStyle={styles.flex}
+          error={errors.minStock}
         />
       </View>
 

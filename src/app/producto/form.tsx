@@ -18,6 +18,7 @@ import type { Business, Product } from '@/db/types';
 import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { centsToInput, currencySymbol, parseMoney, parseQuantity } from '@/lib/money';
+import { validateProductInput } from '@/lib/validation';
 
 export default function ProductFormScreen() {
   const theme = useTheme();
@@ -63,24 +64,37 @@ function ProductForm({ business, product }: { business: Business; product: Produ
   const [stock, setStock] = useState(product ? String(product.stock) : '');
   const [minStock, setMinStock] = useState(product ? String(product.minStock) : '');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const currency = business.currency;
   const priceCents = parseMoney(price);
   const costCents = parseMoney(cost);
 
+  const validate = () => {
+    const result = validateProductInput({
+      name,
+      category,
+      sku,
+      unit,
+      priceCents,
+      costCents,
+      stock: parseQuantity(stock),
+      minStock: parseQuantity(minStock),
+    });
+    setErrors(result.errors);
+    return result.valid;
+  };
+
   const save = async () => {
-    if (!name.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre del producto.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       const input = {
-        name,
-        category: category || null,
-        sku: sku || null,
-        unit: unit || 'pza',
+        name: name.trim(),
+        category: category.trim() || null,
+        sku: sku.trim() || null,
+        unit: unit.trim() || 'pza',
         priceCents,
         costCents,
         stock: parseQuantity(stock),
@@ -135,13 +149,20 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           />
         </View>
       }>
-      <TextField label="Nombre" value={name} onChangeText={setName} placeholder="Ej. Café americano" />
+      <TextField
+        label="Nombre"
+        value={name}
+        onChangeText={setName}
+        placeholder="Ej. Café americano"
+        error={errors.name}
+      />
 
       <TextField
         label="Categoría"
         value={category}
         onChangeText={setCategory}
         placeholder="Ej. Bebidas"
+        error={errors.category}
       />
 
       <View style={styles.row}>
@@ -153,6 +174,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           containerStyle={styles.flex}
+          error={errors.priceCents}
         />
         <TextField
           label="Costo"
@@ -162,6 +184,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           containerStyle={styles.flex}
+          error={errors.costCents}
         />
       </View>
 
@@ -178,6 +201,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="0"
           keyboardType="decimal-pad"
           containerStyle={styles.flex}
+          error={errors.stock}
         />
         <TextField
           label="Stock mínimo"
@@ -186,6 +210,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="0"
           keyboardType="decimal-pad"
           containerStyle={styles.flex}
+          error={errors.minStock}
         />
       </View>
 
@@ -197,6 +222,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="pza"
           autoCapitalize="none"
           containerStyle={styles.flex}
+          error={errors.unit}
         />
         <TextField
           label="SKU"
@@ -205,6 +231,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="Opcional"
           autoCapitalize="characters"
           containerStyle={styles.flex}
+          error={errors.sku}
         />
       </View>
 

@@ -4,6 +4,7 @@ import { mapBusiness, type BusinessRow } from '../mappers';
 import { DEFAULT_BUSINESS_ID } from '../schema';
 import type { Business, BusinessInput } from '../types';
 import { nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 export async function getBusiness(db: SQLiteDatabase): Promise<Business> {
   const row = await db.getFirstAsync<BusinessRow>(
@@ -44,4 +45,5 @@ export async function updateBusiness(
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }

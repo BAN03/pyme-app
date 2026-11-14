@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapProduct, type ProductRow } from '../mappers';
 import type { Product, ProductInput } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 const SELECT_PRODUCTS = `
   SELECT * FROM products
@@ -50,6 +51,7 @@ export async function createProduct(
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -74,6 +76,7 @@ export async function updateProduct(
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteProduct(db: SQLiteDatabase, id: string): Promise<void> {
@@ -84,6 +87,7 @@ export async function deleteProduct(db: SQLiteDatabase, id: string): Promise<voi
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function lowStockProducts(db: SQLiteDatabase, businessId: string): Promise<Product[]> {

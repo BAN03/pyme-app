@@ -134,7 +134,7 @@ async function getTopProducts(
   }));
 }
 
-async function getStockAlerts(db: SQLiteDatabase, businessId: string): Promise<StockAlert[]> {
+export async function getStockAlerts(db: SQLiteDatabase, businessId: string): Promise<StockAlert[]> {
   const products = await db.getAllAsync<{
     id: string;
     name: string;

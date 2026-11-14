@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { GoogleDriveCard } from '@/components/backup/google-drive-card';
 import { AppText } from '@/components/ui/app-text';
@@ -20,7 +20,11 @@ import { resetDatabase } from '@/db/schema';
 import type { Business } from '@/db/types';
 import { useBusinessQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackup } from '@/hooks/use-backup';
 import { CURRENCIES } from '@/lib/money';
+import { validateBusinessInput, validateEmployeeInput } from '@/lib/validation';
+import { requestNotificationPermissions } from '@/lib/notifications';
+import * as Notifications from 'expo-notifications';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -37,23 +41,28 @@ export default function SettingsScreen() {
   const [employeeName, setEmployeeName] = useState('');
   const [employeeEmail, setEmployeeEmail] = useState('');
   const [employeeRole, setEmployeeRole] = useState<'empleado' | 'dueno'>('empleado');
+  const [employeeErrors, setEmployeeErrors] = useState<Record<string, string>>({});
+
+  const validateEmployee = () => {
+    const result = validateEmployeeInput({ name: employeeName, email: employeeEmail });
+    setEmployeeErrors(result.errors);
+    return result.valid;
+  };
 
   const addEmployee = async () => {
     if (!business) return;
-    if (!employeeName.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre de la persona.');
-      return;
-    }
+    if (!validateEmployee()) return;
 
     try {
       await createEmployee(db, business.id, {
-        name: employeeName,
-        email: employeeEmail || null,
+        name: employeeName.trim(),
+        email: employeeEmail.trim() || null,
         role: employeeRole,
       });
       setEmployeeName('');
       setEmployeeEmail('');
       setEmployeeRole('empleado');
+      setEmployeeErrors({});
       await refresh();
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Intenta de nuevo.');
@@ -143,6 +152,9 @@ export default function SettingsScreen() {
       <SectionTitle title="Cuenta y respaldo" />
       <GoogleDriveCard />
 
+      <SectionTitle title="Notificaciones" />
+      <NotificationSettings />
+
       <SectionTitle title={`Equipo (${employees.length})`} />
       <Card padded={false}>
         {employees.length === 0 ? (
@@ -193,6 +205,7 @@ export default function SettingsScreen() {
             value={employeeName}
             onChangeText={setEmployeeName}
             placeholder="Nombre del empleado"
+            error={employeeErrors.name}
           />
           <TextField
             label="Correo"
@@ -202,6 +215,7 @@ export default function SettingsScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            error={employeeErrors.email}
           />
           <View style={styles.fieldGap}>
             <AppText variant="label" color="textSecondary">
@@ -256,20 +270,24 @@ function BusinessForm({ business, onSaved }: { business: Business; onSaved: () =
   const [ownerName, setOwnerName] = useState(business.ownerName ?? '');
   const [ownerEmail, setOwnerEmail] = useState(business.ownerEmail ?? '');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const result = validateBusinessInput({ name, ownerName, ownerEmail });
+    setErrors(result.errors);
+    return result.valid;
+  };
 
   const save = async () => {
-    if (!name.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre de tu negocio.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       await updateBusiness(db, business.id, {
-        name,
+        name: name.trim(),
         currency,
-        ownerName: ownerName || null,
-        ownerEmail: ownerEmail || null,
+        ownerName: ownerName.trim() || null,
+        ownerEmail: ownerEmail.trim() || null,
       });
       await onSaved();
       Alert.alert('Guardado', 'Los datos de tu negocio se actualizaron.');
@@ -282,12 +300,13 @@ function BusinessForm({ business, onSaved }: { business: Business; onSaved: () =
 
   return (
     <Card style={styles.form}>
-      <TextField label="Nombre del negocio" value={name} onChangeText={setName} />
+      <TextField label="Nombre del negocio" value={name} onChangeText={setName} error={errors.name} />
       <TextField
         label="Tu nombre"
         value={ownerName}
         onChangeText={setOwnerName}
         placeholder="Opcional"
+        error={errors.ownerName}
       />
       <TextField
         label="Correo del dueño"
@@ -297,6 +316,7 @@ function BusinessForm({ business, onSaved }: { business: Business; onSaved: () =
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}
+        error={errors.ownerEmail}
       />
       <View style={styles.fieldGap}>
         <AppText variant="label" color="textSecondary">
@@ -309,6 +329,76 @@ function BusinessForm({ business, onSaved }: { business: Business; onSaved: () =
         />
       </View>
       <Button title="Guardar cambios" onPress={save} loading={saving} />
+    </Card>
+  );
+}
+
+function NotificationSettings() {
+  const { autoBackup, account } = useBackup();
+  const theme = useTheme();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if permissions are granted
+    Notifications.getPermissionsAsync().then(({ status }) => {
+      setPushEnabled(status === 'granted');
+    });
+  }, []);
+
+  const handleTogglePush = async () => {
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      if (!pushEnabled) {
+        const granted = await requestNotificationPermissions();
+        setPushEnabled(granted);
+        if (granted) {
+          Alert.alert('Activado', 'Recibirás notificaciones cuando el stock sea bajo.');
+        }
+      } else {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        setPushEnabled(false);
+        Alert.alert('Desactivado', 'Ya no recibirás notificaciones de stock bajo.');
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo cambiar la configuración de notificaciones.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!account || !autoBackup) {
+    return (
+      <Card style={styles.form}>
+        <AppText variant="body" color="textSecondary">
+          Conecta tu cuenta de Google y activa el respaldo automático para recibir notificaciones de stock bajo.
+        </AppText>
+      </Card>
+    );
+  }
+
+  return (
+    <Card style={styles.form}>
+      <View style={styles.switchRow}>
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong">Notificaciones de stock bajo</AppText>
+          <AppText variant="caption" color="textSecondary">
+            Recibe alertas cuando productos o insumos estén por debajo del mínimo.
+          </AppText>
+        </View>
+        <Switch
+          value={pushEnabled}
+          onValueChange={handleTogglePush}
+          disabled={loading}
+          trackColor={{ false: theme.backgroundElement, true: theme.primary }}
+          thumbColor="#FFFFFF"
+        />
+      </View>
+      <AppText variant="caption" color="textSecondary">
+        Se verifica cada hora. Máximo una notificación por producto cada 24 horas.
+      </AppText>
     </Card>
   );
 }
@@ -358,5 +448,10 @@ const styles = StyleSheet.create({
   },
   about: {
     gap: 4,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

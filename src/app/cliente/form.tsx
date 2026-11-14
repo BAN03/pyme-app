@@ -16,6 +16,7 @@ import {
 import type { Business, Customer } from '@/db/types';
 import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
+import { validateCustomerInput } from '@/lib/validation';
 
 export default function CustomerFormScreen() {
   const theme = useTheme();
@@ -59,20 +60,24 @@ function CustomerForm({
   const [email, setEmail] = useState(customer?.email ?? '');
   const [notes, setNotes] = useState(customer?.notes ?? '');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const result = validateCustomerInput({ name, phone, email, notes });
+    setErrors(result.errors);
+    return result.valid;
+  };
 
   const save = async () => {
-    if (!name.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre del cliente.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       const input = {
-        name,
-        phone: phone || null,
-        email: email || null,
-        notes: notes || null,
+        name: name.trim(),
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        notes: notes.trim() || null,
       };
 
       if (id) {
@@ -120,7 +125,13 @@ function CustomerForm({
           />
         </View>
       }>
-      <TextField label="Nombre" value={name} onChangeText={setName} placeholder="Nombre completo" />
+      <TextField
+        label="Nombre"
+        value={name}
+        onChangeText={setName}
+        placeholder="Nombre completo"
+        error={errors.name}
+      />
 
       <TextField
         label="Teléfono"
@@ -128,6 +139,7 @@ function CustomerForm({
         onChangeText={setPhone}
         placeholder="Opcional"
         keyboardType="phone-pad"
+        error={errors.phone}
       />
 
       <TextField
@@ -138,6 +150,7 @@ function CustomerForm({
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}
+        error={errors.email}
       />
 
       <TextField
@@ -146,6 +159,7 @@ function CustomerForm({
         onChangeText={setNotes}
         placeholder="Preferencias, cumpleaños, seguimiento…"
         multiline
+        error={errors.notes}
       />
     </FormScreen>
   );

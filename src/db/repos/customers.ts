@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapCustomerWithStats, type CustomerStatsRow } from '../mappers';
 import type { Customer, CustomerInput, CustomerWithStats } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 export async function listCustomers(
   db: SQLiteDatabase,
@@ -58,6 +59,7 @@ export async function createCustomer(
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -76,6 +78,7 @@ export async function updateCustomer(
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteCustomer(db: SQLiteDatabase, id: string): Promise<void> {
@@ -86,4 +89,5 @@ export async function deleteCustomer(db: SQLiteDatabase, id: string): Promise<vo
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }

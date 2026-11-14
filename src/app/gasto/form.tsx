@@ -16,6 +16,7 @@ import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { todayISO } from '@/lib/date';
 import { centsToInput, currencySymbol, parseMoney } from '@/lib/money';
+import { validateExpenseInput } from '@/lib/validation';
 
 const CATEGORIES = [
   'Renta',
@@ -64,28 +65,34 @@ function ExpenseForm({ business, expense }: { business: Business; expense: Expen
   const [date, setDate] = useState(expense?.date ?? todayISO());
   const [note, setNote] = useState(expense?.note ?? '');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const amountCents = parseMoney(amount);
   const currency = business.currency;
 
+  const validate = () => {
+    const result = validateExpenseInput({
+      category,
+      description,
+      amountCents,
+      date,
+      note,
+    });
+    setErrors(result.errors);
+    return result.valid;
+  };
+
   const save = async () => {
-    if (!description.trim()) {
-      Alert.alert('Falta la descripción', 'Escribe en qué gastaste.');
-      return;
-    }
-    if (amountCents <= 0) {
-      Alert.alert('Falta el monto', 'Escribe un monto mayor que cero.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       const input = {
-        category,
-        description,
+        category: category.trim(),
+        description: description.trim(),
         amountCents,
         date,
-        note: note || null,
+        note: note.trim() || null,
       };
 
       if (id) {
@@ -140,6 +147,7 @@ function ExpenseForm({ business, expense }: { business: Business; expense: Expen
         placeholder="0.00"
         keyboardType="decimal-pad"
         prefix={currencySymbol(currency)}
+        error={errors.amountCents}
       />
 
       <TextField
@@ -147,6 +155,7 @@ function ExpenseForm({ business, expense }: { business: Business; expense: Expen
         value={description}
         onChangeText={setDescription}
         placeholder="Ej. Renta del local"
+        error={errors.description}
       />
 
       <View style={styles.fieldGap}>
@@ -160,9 +169,10 @@ function ExpenseForm({ business, expense }: { business: Business; expense: Expen
           value={category}
           onChange={setCategory}
         />
+        {errors.category && <AppText variant="caption" color="danger">{errors.category}</AppText>}
       </View>
 
-      <DateField value={date} onChange={setDate} />
+      <DateField value={date} onChange={setDate} error={errors.date} />
 
       <TextField
         label="Nota"
@@ -170,6 +180,7 @@ function ExpenseForm({ business, expense }: { business: Business; expense: Expen
         onChangeText={setNote}
         placeholder="Opcional"
         multiline
+        error={errors.note}
       />
     </FormScreen>
   );

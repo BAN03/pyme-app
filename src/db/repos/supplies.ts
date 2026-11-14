@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapSupply, type SupplyRow } from '../mappers';
 import type { Supply, SupplyInput } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 export async function listSupplies(db: SQLiteDatabase, businessId: string): Promise<Supply[]> {
   const rows = await db.getAllAsync<SupplyRow>(
@@ -45,6 +46,7 @@ export async function createSupply(
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -65,6 +67,7 @@ export async function updateSupply(
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteSupply(db: SQLiteDatabase, id: string): Promise<void> {
@@ -75,6 +78,7 @@ export async function deleteSupply(db: SQLiteDatabase, id: string): Promise<void
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export type SupplyPurchaseInput = {

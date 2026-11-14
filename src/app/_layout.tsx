@@ -7,6 +7,7 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { DATABASE_NAME, initDatabase } from '@/db/schema';
 import { BackupProvider } from '@/hooks/use-backup';
+import { NotificationProvider } from '@/hooks/use-notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,23 +42,25 @@ export default function RootLayout() {
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} onInit={initialize}>
       <BackupProvider>
-        <ThemeProvider value={navigationTheme}>
-          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
-            }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="venta/nueva" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="gasto/form" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="producto/form" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="insumo/form" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="insumo/compra" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="cliente/form" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="respaldo/restaurar" options={{ presentation: 'modal' }} />
-          </Stack>
-        </ThemeProvider>
+        <NotificationProvider>
+          <ThemeProvider value={navigationTheme}>
+            <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+              }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="venta/nueva" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="gasto/form" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="producto/form" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="insumo/form" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="insumo/compra" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="cliente/form" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="respaldo/restaurar" options={{ presentation: 'modal' }} />
+            </Stack>
+          </ThemeProvider>
+        </NotificationProvider>
       </BackupProvider>
     </SQLiteProvider>
   );
