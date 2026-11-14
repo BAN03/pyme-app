@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { Alert, Image, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Image, Platform, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Badge } from '@/components/ui/badge';
@@ -100,7 +100,11 @@ export function GoogleDriveCard() {
           <AppText variant="small" color="textSecondary">
             La app todavía no tiene configuradas las credenciales de Google. Define
             {' '}
-            <AppText variant="smallStrong">EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID</AppText>
+            <AppText variant="smallStrong">
+              {Platform.OS === 'ios'
+                ? 'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID'
+                : 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'}
+            </AppText>
             {' '}
             en tu archivo .env.local y vuelve a compilar la app. En el README están los pasos
             completos de Google Cloud.

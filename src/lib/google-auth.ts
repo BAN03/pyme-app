@@ -1,8 +1,10 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 export const DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 const WEB_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '').trim();
+const IOS_CLIENT_ID = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '').trim();
 
 export type GoogleAccount = {
   id: string;
@@ -29,7 +31,7 @@ export class GoogleAuthError extends Error {
 }
 
 export function isGoogleAuthConfigured(): boolean {
-  return WEB_CLIENT_ID.length > 0;
+  return Platform.OS === 'ios' ? IOS_CLIENT_ID.length > 0 : WEB_CLIENT_ID.length > 0;
 }
 
 /** True when the app is running inside Expo Go, which has no Google Sign-In native module. */
@@ -45,9 +47,11 @@ async function loadModule(): Promise<GoogleModule> {
 }
 
 async function configure(): Promise<GoogleModule> {
-  if (!WEB_CLIENT_ID) {
+  if (Platform.OS === 'ios' ? !IOS_CLIENT_ID : !WEB_CLIENT_ID) {
     throw new GoogleAuthError(
-      'Falta el ID de cliente de Google. Agrega EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID en .env.local y vuelve a compilar la app.',
+      Platform.OS === 'ios'
+        ? 'Falta el ID de cliente de iOS. Agrega EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID en .env.local y vuelve a compilar la app.'
+        : 'Falta el ID de cliente web. Agrega EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID en .env.local y vuelve a compilar la app.',
     );
   }
 
@@ -55,9 +59,13 @@ async function configure(): Promise<GoogleModule> {
 
   if (!configured) {
     google.GoogleSignin.configure({
-      webClientId: WEB_CLIENT_ID,
       scopes: [DRIVE_APPDATA_SCOPE],
       offlineAccess: false,
+      // Android identifies the app by package name + SHA-1 and needs the web
+      // client id to request the id token and the Drive access token.
+      ...(WEB_CLIENT_ID ? { webClientId: WEB_CLIENT_ID } : {}),
+      // iOS cannot infer the client id from the URL scheme, so it must be passed.
+      ...(Platform.OS === 'ios' && IOS_CLIENT_ID ? { iosClientId: IOS_CLIENT_ID } : {}),
     });
     configured = true;
   }

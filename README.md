@@ -14,8 +14,8 @@ Hecha con **Expo SDK 58**, **React Native 0.88**, **TypeScript** y **SQLite** lo
 - **Catálogo**: productos (precio, costo, stock, stock mínimo, SKU) e insumos (stock, costo unitario,
   compras que suman existencias y opcionalmente registran el gasto).
 - **Clientes (CRM)**: datos de contacto, notas, número de compras, total gastado y última compra.
-- **Ajustes**: datos del negocio, moneda, equipo (dueño/empleados), carga de datos de ejemplo y
-  borrado total.
+- **Ajustes**: datos del negocio, moneda, equipo (dueño/empleados), inicio de sesión con Google,
+  respaldo en Drive, carga de datos de ejemplo y borrado total.
 
 Todo funciona sin internet. La base de datos vive en el dispositivo.
 
@@ -45,6 +45,77 @@ npx expo install <pkg>     # instalar dependencias compatibles con el SDK
 > Si agregas una librería con código nativo que no esté en Expo Go, necesitas un development build:
 > `npx expo run:android` o `eas build --profile development`.
 
+## Inicio de sesión con Google y respaldo en Drive
+
+El respaldo sube una copia completa de `pyme.db` a la carpeta privada de la app en Google Drive
+(`appDataFolder`, solo visible para Pyme App) y permite restaurarla en otro dispositivo con la
+misma cuenta.
+
+La autenticación usa **`@react-native-google-signin/google-signin`**, que incluye código nativo y
+**no funciona en Expo Go**. Necesitas un development build:
+
+```bash
+npx expo run:android            # o npx expo run:ios
+# o en la nube:
+npx eas-cli build --profile development
+```
+
+### 1. Crea las credenciales en Google Cloud
+
+En [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+
+1. Habilita la **Google Drive API** para el proyecto.
+2. Configura la pantalla de consentimiento OAuth (tipo "Externo" sirve para pruebas; agrega tu
+   correo como usuario de prueba).
+3. Crea un **ID de cliente OAuth de tipo "Web"**. Copia su valor y pégalo en `.env.local` como
+   `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (lo usan Android y la API de Drive):
+
+   ```bash
+   cp .env.example .env.local   # en Windows: copy .env.example .env.local
+   # luego edita EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+   ```
+
+4. Crea un **ID de cliente OAuth de tipo "Android"** con el nombre de paquete
+   `com.pymeapp.mobile` y el **SHA-1** de tu keystore. Para obtenerlo:
+
+   ```bash
+   npx @react-native-google-signin/config-doctor
+   ```
+
+   (también puedes usar `eas credentials` para ver el SHA-1 de EAS Build).
+
+5. Crea un **ID de cliente OAuth de tipo "iOS"** con el bundle id `com.pymeapp.mobile`.
+   Pega su valor en `.env.local` como `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` y copia su
+   **iOS URL scheme** (el "reversed client id", empieza con `com.googleusercontent.apps.`) en
+   `app.json`:
+
+   ```json
+   [
+     "@react-native-google-signin/google-signin",
+     { "iosUrlScheme": "com.googleusercontent.apps.XXXX-XXXXXXXX" }
+   ]
+   ```
+
+### 2. Recompila el development build
+
+Los cambios de `app.json` y las variables `EXPO_PUBLIC_*` requieren recompilar la app (no basta con
+recargar Metro):
+
+```bash
+npx expo run:android      # o npx expo run:ios
+```
+
+Después abre **Ajustes → Cuenta y respaldo → Conectar con Google**. Una vez conectado puedes
+respaldar manualmente, activar el respaldo automático (cada 12 h al abrir la app) y restaurar
+cualquier copia anterior. Se conservan los 5 respaldos más recientes.
+
+### Notas
+
+- El token de acceso se guarda solo en memoria; si expira, la app lo renueva automáticamente.
+- La cuenta conectada se recuerda entre sesiones con `signInSilently`.
+- Sin las credenciales (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` en Android,
+  `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` en iOS), la tarjeta de Google muestra "Sin configurar".
+
 ## Estructura
 
 ```
@@ -57,15 +128,18 @@ src/
     insumo/form.tsx    alta y edición de insumos
     insumo/compra.tsx  compra de insumo (stock + gasto)
     cliente/form.tsx   alta y edición de clientes
+    respaldo/restaurar.tsx  restaurar una copia desde Google Drive
   components/ui/       componentes reutilizables (botones, tarjetas, campos, etc.)
+  components/backup/   tarjeta de conexión con Google y respaldo en Drive
   components/charts/   gráfica de barras con react-native-svg
   db/
     schema.ts          esquema SQLite, migraciones y reset
+    backup.ts          crear y restaurar snapshots de la base de datos
     types.ts           modelos de dominio
     mappers.ts         conversión de filas snake_case a modelos
     repos/             acceso a datos (productos, ventas, gastos, métricas, demo…)
-  hooks/               useQuery / useBusinessQuery / tema
-  lib/                 dinero (centavos) y fechas locales
+  hooks/               useQuery / useBusinessQuery / tema / use-backup (Drive)
+  lib/                 dinero (centavos), fechas locales, Google Auth y Drive
 ```
 
 ## Modelo de datos
@@ -78,9 +152,9 @@ src/
 
 ## Roadmap (Fase 2)
 
-1. **Inicio de sesión con Google** (`expo-auth-session` + Google OAuth).
-2. **Respaldo en Google Drive**: subir una copia de `pyme.db` (o un volcado JSON) a una carpeta de
-   Drive del dueño, y restaurarla en otro dispositivo con la misma cuenta.
+1. ~~**Inicio de sesión con Google** (`@react-native-google-signin/google-signin`).~~ ✅ Hecho.
+2. ~~**Respaldo en Google Drive**: subir una copia de `pyme.db` a la carpeta privada de la app y
+   restaurarla en otro dispositivo con la misma cuenta.~~ ✅ Hecho.
 3. **Empleados**: el dueño comparte su carpeta de Drive con las cuentas de sus empleados; los
    cambios que hagan se suben a la misma copia. Requiere resolución de conflictos (por `updated_at`
    y `device_id`) y verificación de la app ante Google.

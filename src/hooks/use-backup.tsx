@@ -132,7 +132,7 @@ export function BackupProvider({ children }: { children: ReactNode }) {
       }
       return freshToken;
     },
-    [account?.id],
+    [account],
   );
 
   const connect = useCallback(async () => {
