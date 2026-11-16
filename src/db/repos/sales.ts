@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapSale, type ProductRow, type SaleRow } from '../mappers';
 import type { NewSaleInput, Sale } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 const SALE_SELECT = `
   SELECT s.*,
@@ -118,6 +119,7 @@ export async function createSale(
     }
   });
 
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -147,4 +149,6 @@ export async function deleteSale(db: SQLiteDatabase, id: string): Promise<void> 
       id,
     );
   });
+
+  notifyDbChangedDebounced();
 }

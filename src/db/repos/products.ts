@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapProduct, type ProductRow } from '../mappers';
 import type { Product, ProductInput } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 const SELECT_PRODUCTS = `
   SELECT * FROM products
@@ -34,8 +35,8 @@ export async function createProduct(
   await db.runAsync(
     `INSERT INTO products
       (id, business_id, name, category, sku, unit, price_cents, cost_cents, stock, min_stock,
-       active, created_at, updated_at, device_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+       expires, expiry_date, active, created_at, updated_at, device_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
     id,
     businessId,
     input.name.trim(),
@@ -46,10 +47,13 @@ export async function createProduct(
     input.costCents,
     input.stock,
     input.minStock,
+    input.expires ? 1 : 0,
+    input.expires ? input.expiryDate : null,
     now,
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -61,7 +65,7 @@ export async function updateProduct(
   await db.runAsync(
     `UPDATE products
      SET name = ?, category = ?, sku = ?, unit = ?, price_cents = ?, cost_cents = ?,
-         stock = ?, min_stock = ?, updated_at = ?
+         stock = ?, min_stock = ?, expires = ?, expiry_date = ?, updated_at = ?
      WHERE id = ?`,
     input.name.trim(),
     input.category?.trim() || null,
@@ -71,9 +75,12 @@ export async function updateProduct(
     input.costCents,
     input.stock,
     input.minStock,
+    input.expires ? 1 : 0,
+    input.expires ? input.expiryDate : null,
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteProduct(db: SQLiteDatabase, id: string): Promise<void> {
@@ -84,6 +91,7 @@ export async function deleteProduct(db: SQLiteDatabase, id: string): Promise<voi
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function lowStockProducts(db: SQLiteDatabase, businessId: string): Promise<Product[]> {

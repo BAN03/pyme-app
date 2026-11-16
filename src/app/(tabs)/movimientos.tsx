@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { MonthSwitcher } from '@/components/ui/month-switcher';
 import { Screen } from '@/components/ui/screen';
 import { Segmented } from '@/components/ui/segmented';
+import { SettingsButton } from '@/components/ui/settings-button';
 import { deleteExpense, listExpenses } from '@/db/repos/expenses';
 import { deleteSale, listSales } from '@/db/repos/sales';
 import { useBusinessQuery } from '@/hooks/use-query';
@@ -83,9 +84,7 @@ export default function MovementsScreen() {
             Ventas y gastos de tu negocio
           </AppText>
         </View>
-        <View style={[styles.headerIcon, { backgroundColor: theme.primarySoft }]}>
-          <Ionicons name="swap-vertical" size={20} color={theme.primary} />
-        </View>
+        <SettingsButton />
       </View>
 
       <MonthSwitcher value={month} onChange={setMonth} />
@@ -158,7 +157,8 @@ export default function MovementsScreen() {
                     {sale.itemsSummary ?? 'Venta rápida'}
                   </AppText>
                   <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-                    {sale.customerName ?? 'Cliente general'} · {sale.paymentMethod}
+                    {sale.itemCount} {sale.itemCount === 1 ? 'artículo' : 'artículos'} ·{' '}
+                    {sale.paymentMethod}
                   </AppText>
                 </View>
 
@@ -235,13 +235,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingTop: 4,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   totalCard: {
     gap: 2,

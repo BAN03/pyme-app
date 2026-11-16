@@ -15,15 +15,32 @@ type DateFieldProps = {
   label?: string;
   value: string;
   onChange: (isoDate: string) => void;
+  error?: string;
+  /** Earliest selectable date (ISO). When set, future dates become selectable. */
+  minimumDate?: string;
+  /** Latest selectable date (ISO). Defaults to today unless `minimumDate` is set. */
+  maximumDate?: string;
 };
 
-export function DateField({ label = 'Fecha', value, onChange }: DateFieldProps) {
+export function DateField({
+  label = 'Fecha',
+  value,
+  onChange,
+  error,
+  minimumDate,
+  maximumDate,
+}: DateFieldProps) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const [show, setShow] = useState(false);
   const date = parseISODate(value);
   const today = parseISODate(todayISO());
+  const minDate = minimumDate ? parseISODate(minimumDate) : undefined;
+  // Without an explicit maximum, dates are capped at today (records are not
+  // created in the future) — unless a minimum is set, as with expiry dates.
+  const maxDate = maximumDate ? parseISODate(maximumDate) : minimumDate ? undefined : today;
   const relative = relativeDayLabel(value);
+  const borderColor = error ? theme.danger : theme.border;
 
   const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === 'android') setShow(false);
@@ -38,7 +55,7 @@ export function DateField({ label = 'Fecha', value, onChange }: DateFieldProps) 
 
       {Platform.OS === 'ios' ? (
         <View
-          style={[styles.field, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          style={[styles.field, { backgroundColor: theme.card, borderColor }]}>
           <Ionicons name="calendar-outline" size={18} color={theme.textSecondary} />
           <AppText variant="body" style={styles.flex}>
             {formatDate(value)}
@@ -47,7 +64,8 @@ export function DateField({ label = 'Fecha', value, onChange }: DateFieldProps) 
             value={date}
             mode="date"
             display="compact"
-            maximumDate={today}
+            minimumDate={minDate}
+            maximumDate={maxDate}
             themeVariant={scheme === 'dark' ? 'dark' : 'light'}
             accentColor={theme.primary}
             onChange={handleChange}
@@ -57,7 +75,7 @@ export function DateField({ label = 'Fecha', value, onChange }: DateFieldProps) 
         <>
           <Pressable
             onPress={() => setShow(true)}
-            style={[styles.field, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            style={[styles.field, { backgroundColor: theme.card, borderColor }]}>
             <Ionicons name="calendar-outline" size={18} color={theme.textSecondary} />
             <AppText variant="body" style={styles.flex}>
               {formatDate(value)}
@@ -71,12 +89,19 @@ export function DateField({ label = 'Fecha', value, onChange }: DateFieldProps) 
               value={date}
               mode="date"
               display="default"
-              maximumDate={today}
+              minimumDate={minDate}
+              maximumDate={maxDate}
               onChange={handleChange}
             />
           ) : null}
         </>
       )}
+
+      {error ? (
+        <AppText variant="caption" color="danger">
+          {error}
+        </AppText>
+      ) : null}
     </View>
   );
 }

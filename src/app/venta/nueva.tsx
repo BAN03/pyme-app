@@ -13,13 +13,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FormScreen } from '@/components/ui/form-screen';
 import { Segmented } from '@/components/ui/segmented';
 import { TextField } from '@/components/ui/text-field';
-import { listCustomers } from '@/db/repos/customers';
 import { listProducts } from '@/db/repos/products';
 import { createSale } from '@/db/repos/sales';
 import { useBusinessQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { todayISO } from '@/lib/date';
 import { formatMoney, currencySymbol, parseMoney } from '@/lib/money';
+import { validateSaleInput } from '@/lib/validation';
 
 type Mode = 'productos' | 'libre';
 
@@ -43,26 +43,22 @@ export default function NewSaleScreen() {
   const db = useSQLiteContext();
 
   const { data } = useBusinessQuery(async (currentDb, business) => {
-    const [products, customers] = await Promise.all([
-      listProducts(currentDb, business.id),
-      listCustomers(currentDb, business.id),
-    ]);
-    return { products, customers };
+    const products = await listProducts(currentDb, business.id);
+    return { products };
   });
 
   const business = data?.business;
   const products = data?.data.products ?? [];
-  const customers = data?.data.customers ?? [];
   const currency = business?.currency ?? 'MXN';
 
   const [mode, setMode] = useState<Mode>('productos');
   const [date, setDate] = useState(todayISO());
-  const [customerId, setCustomerId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const [note, setNote] = useState('');
   const [items, setItems] = useState<DraftItem[]>([]);
   const [freeTotal, setFreeTotal] = useState('');
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const addProduct = (productId: string) => {
     const product = products.find((candidate) => candidate.id === productId);
@@ -110,25 +106,30 @@ export default function NewSaleScreen() {
   const freeTotalCents = parseMoney(freeTotal);
   const total = mode === 'productos' ? itemsTotal : freeTotalCents;
 
+  const validate = () => {
+    const result = validateSaleInput({
+      freeTotalCents: mode === 'libre' ? freeTotalCents : undefined,
+      items: mode === 'productos' ? items : undefined,
+    });
+    if (mode === 'productos' && items.length === 0) {
+      result.valid = false;
+      result.errors.items = 'Agrega al menos un producto con cantidad mayor que cero.';
+    }
+    setErrors(result.errors);
+    return result.valid;
+  };
+
   const save = async () => {
     if (!business) return;
-
-    if (mode === 'productos' && items.length === 0) {
-      Alert.alert('Agrega productos', 'Selecciona al menos un producto para registrar la venta.');
-      return;
-    }
-    if (mode === 'libre' && freeTotalCents <= 0) {
-      Alert.alert('Falta el monto', 'Escribe cuánto vendiste.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       await createSale(db, business.id, {
         date,
-        customerId: customerId || null,
+        customerId: null,
         paymentMethod,
-        note: note || null,
+        note: note.trim() || null,
         items:
           mode === 'productos'
             ? items.map((item) => ({
@@ -209,6 +210,11 @@ export default function NewSaleScreen() {
                 })}
               </View>
             )}
+            {errors.items ? (
+              <AppText variant="caption" color="danger">
+                {errors.items}
+              </AppText>
+            ) : null}
           </View>
 
           {items.length > 0 ? (
@@ -268,22 +274,9 @@ export default function NewSaleScreen() {
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           hint="Úsalo cuando no quieras detallar los productos."
+          error={errors.freeTotalCents}
         />
       )}
-
-      <View style={styles.fieldGap}>
-        <AppText variant="label" color="textSecondary">
-          Cliente
-        </AppText>
-        <ChoiceChips
-          options={[
-            { value: '', label: 'Cliente general' },
-            ...customers.map((customer) => ({ value: customer.id, label: customer.name })),
-          ]}
-          value={customerId}
-          onChange={setCustomerId}
-        />
-      </View>
 
       <View style={styles.fieldGap}>
         <AppText variant="label" color="textSecondary">

@@ -42,7 +42,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.000000000000-iosplaceholder"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

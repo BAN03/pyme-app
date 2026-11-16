@@ -10,11 +10,13 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { Segmented } from '@/components/ui/segmented';
+import { SettingsButton } from '@/components/ui/settings-button';
 import { TextField } from '@/components/ui/text-field';
 import { listProducts } from '@/db/repos/products';
 import { listSupplies } from '@/db/repos/supplies';
 import { useBusinessQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDate } from '@/lib/date';
 import { formatMoney, formatQuantity } from '@/lib/money';
 
 type Tab = 'productos' | 'insumos';
@@ -50,10 +52,9 @@ export default function CatalogScreen() {
     products.filter((product) => product.stock <= product.minStock).length +
     supplies.filter((supply) => supply.stock <= supply.minStock).length;
 
-  const inventoryValue = products.reduce(
-    (sum, product) => sum + product.stock * product.costCents,
-    0,
-  );
+  const inventoryValue =
+    products.reduce((sum, product) => sum + product.stock * product.costCents, 0) +
+    supplies.reduce((sum, supply) => sum + supply.stock * supply.unitCostCents, 0);
 
   return (
     <Screen>
@@ -64,9 +65,7 @@ export default function CatalogScreen() {
             Productos e insumos
           </AppText>
         </View>
-        <View style={[styles.headerIcon, { backgroundColor: theme.primarySoft }]}>
-          <Ionicons name="pricetags-outline" size={20} color={theme.primary} />
-        </View>
+        <SettingsButton />
       </View>
 
       <Segmented
@@ -156,6 +155,9 @@ export default function CatalogScreen() {
                     <AppText variant="caption" color="textSecondary" numberOfLines={1}>
                       {product.category ? `${product.category} · ` : ''}
                       {formatMoney(product.priceCents, currency)}
+                      {product.expires && product.expiryDate
+                        ? ` · Caduca ${formatDate(product.expiryDate)}`
+                        : ''}
                     </AppText>
                   </View>
 
@@ -215,6 +217,9 @@ export default function CatalogScreen() {
                     </AppText>
                     <AppText variant="caption" color="textSecondary">
                       {formatMoney(supply.unitCostCents, currency)} / {supply.unit}
+                      {supply.expires && supply.expiryDate
+                        ? ` · Caduca ${formatDate(supply.expiryDate)}`
+                        : ''}
                     </AppText>
                   </View>
 
@@ -246,13 +251,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingTop: 4,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   row: {
     flexDirection: 'row',

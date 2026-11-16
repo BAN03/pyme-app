@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapEmployee, type EmployeeRow } from '../mappers';
 import type { Employee, EmployeeInput } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 export async function listEmployees(
   db: SQLiteDatabase,
@@ -38,6 +39,7 @@ export async function createEmployee(
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -54,6 +56,7 @@ export async function updateEmployee(
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteEmployee(db: SQLiteDatabase, id: string): Promise<void> {
@@ -64,4 +67,5 @@ export async function deleteEmployee(db: SQLiteDatabase, id: string): Promise<vo
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }

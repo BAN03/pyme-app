@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { FormScreen } from '@/components/ui/form-screen';
+import { SelectField } from '@/components/ui/select-field';
 import { TextField } from '@/components/ui/text-field';
 import { getBusiness } from '@/db/repos/business';
 import {
@@ -17,7 +19,10 @@ import {
 import type { Business, Product } from '@/db/types';
 import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
+import { todayISO } from '@/lib/date';
 import { centsToInput, currencySymbol, parseMoney, parseQuantity } from '@/lib/money';
+import { UNITS } from '@/lib/units';
+import { sanitizeNameInput, validateProductInput } from '@/lib/validation';
 
 export default function ProductFormScreen() {
   const theme = useTheme();
@@ -50,6 +55,7 @@ export default function ProductFormScreen() {
 }
 
 function ProductForm({ business, product }: { business: Business; product: Product | null }) {
+  const theme = useTheme();
   const router = useRouter();
   const db = useSQLiteContext();
   const id = product?.id;
@@ -62,29 +68,48 @@ function ProductForm({ business, product }: { business: Business; product: Produ
   const [cost, setCost] = useState(product ? centsToInput(product.costCents) : '');
   const [stock, setStock] = useState(product ? String(product.stock) : '');
   const [minStock, setMinStock] = useState(product ? String(product.minStock) : '');
+  const [expires, setExpires] = useState(product?.expires ?? false);
+  const [expiryDate, setExpiryDate] = useState(product?.expiryDate ?? todayISO());
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const currency = business.currency;
   const priceCents = parseMoney(price);
   const costCents = parseMoney(cost);
 
+  const validate = () => {
+    const result = validateProductInput({
+      name,
+      category,
+      sku,
+      unit,
+      priceCents,
+      costCents,
+      stock: parseQuantity(stock),
+      minStock: parseQuantity(minStock),
+      expires,
+      expiryDate: expiryDate || null,
+    });
+    setErrors(result.errors);
+    return result.valid;
+  };
+
   const save = async () => {
-    if (!name.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre del producto.');
-      return;
-    }
+    if (!validate()) return;
 
     setSaving(true);
     try {
       const input = {
-        name,
-        category: category || null,
-        sku: sku || null,
-        unit: unit || 'pza',
+        name: name.trim(),
+        category: category.trim() || null,
+        sku: sku.trim() || null,
+        unit: unit.trim() || 'pza',
         priceCents,
         costCents,
         stock: parseQuantity(stock),
         minStock: parseQuantity(minStock),
+        expires,
+        expiryDate: expires ? expiryDate || null : null,
       };
 
       if (id) {
@@ -135,13 +160,20 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           />
         </View>
       }>
-      <TextField label="Nombre" value={name} onChangeText={setName} placeholder="Ej. Café americano" />
+      <TextField
+        label="Nombre"
+        value={name}
+        onChangeText={(value) => setName(sanitizeNameInput(value))}
+        placeholder="Ej. Café americano"
+        error={errors.name}
+      />
 
       <TextField
         label="Categoría"
         value={category}
-        onChangeText={setCategory}
+        onChangeText={(value) => setCategory(sanitizeNameInput(value))}
         placeholder="Ej. Bebidas"
+        error={errors.category}
       />
 
       <View style={styles.row}>
@@ -153,6 +185,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           containerStyle={styles.flex}
+          error={errors.priceCents}
         />
         <TextField
           label="Costo"
@@ -162,6 +195,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           keyboardType="decimal-pad"
           prefix={currencySymbol(currency)}
           containerStyle={styles.flex}
+          error={errors.costCents}
         />
       </View>
 
@@ -178,6 +212,7 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="0"
           keyboardType="decimal-pad"
           containerStyle={styles.flex}
+          error={errors.stock}
         />
         <TextField
           label="Stock mínimo"
@@ -186,17 +221,18 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="0"
           keyboardType="decimal-pad"
           containerStyle={styles.flex}
+          error={errors.minStock}
         />
       </View>
 
       <View style={styles.row}>
-        <TextField
+        <SelectField
           label="Unidad"
           value={unit}
-          onChangeText={setUnit}
-          placeholder="pza"
-          autoCapitalize="none"
+          options={UNITS}
+          onChange={setUnit}
           containerStyle={styles.flex}
+          error={errors.unit}
         />
         <TextField
           label="SKU"
@@ -205,7 +241,35 @@ function ProductForm({ business, product }: { business: Business; product: Produ
           placeholder="Opcional"
           autoCapitalize="characters"
           containerStyle={styles.flex}
+          error={errors.sku}
         />
+      </View>
+
+      <View style={[styles.expiryCard, { borderColor: theme.border }]}>
+        <View style={styles.switchRow}>
+          <View style={styles.flex}>
+            <AppText variant="bodyStrong">¿Caduca?</AppText>
+            <AppText variant="caption" color="textSecondary">
+              Actívalo para vigilar la fecha de caducidad de este producto.
+            </AppText>
+          </View>
+          <Switch
+            value={expires}
+            onValueChange={setExpires}
+            trackColor={{ false: theme.backgroundElement, true: theme.primary }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+
+        {expires ? (
+          <DateField
+            label="Fecha de caducidad"
+            value={expiryDate}
+            onChange={setExpiryDate}
+            minimumDate={todayISO()}
+            error={errors.expiryDate}
+          />
+        ) : null}
       </View>
 
       <AppText variant="caption" color="textSecondary">
@@ -228,5 +292,16 @@ const styles = StyleSheet.create({
   loading: {
     paddingTop: 80,
     alignItems: 'center',
+  },
+  expiryCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 14,
+    gap: 14,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
 });

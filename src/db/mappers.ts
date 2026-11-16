@@ -42,6 +42,8 @@ export type ProductRow = {
   cost_cents: number;
   stock: number;
   min_stock: number;
+  expires: number;
+  expiry_date: string | null;
   active: number;
   created_at: string;
   updated_at: string;
@@ -59,6 +61,8 @@ export function mapProduct(row: ProductRow): Product {
     costCents: row.cost_cents,
     stock: row.stock,
     minStock: row.min_stock,
+    expires: row.expires === 1,
+    expiryDate: row.expiry_date,
     active: row.active === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -73,6 +77,8 @@ export type SupplyRow = {
   stock: number;
   min_stock: number;
   unit_cost_cents: number;
+  expires: number;
+  expiry_date: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -86,6 +92,8 @@ export function mapSupply(row: SupplyRow): Supply {
     stock: row.stock,
     minStock: row.min_stock,
     unitCostCents: row.unit_cost_cents,
+    expires: row.expires === 1,
+    expiryDate: row.expiry_date,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -35,6 +35,7 @@ import {
   useBackupStore,
   type BackupMeta,
 } from '@/lib/backup-store';
+import { subscribeToDbChanges } from '@/lib/db-change-listener';
 
 const AUTO_BACKUP_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const MAX_BACKUPS = 5;
@@ -132,7 +133,7 @@ export function BackupProvider({ children }: { children: ReactNode }) {
       }
       return freshToken;
     },
-    [account?.id],
+    [account],
   );
 
   const connect = useCallback(async () => {
@@ -233,6 +234,17 @@ export function BackupProvider({ children }: { children: ReactNode }) {
       );
     });
   }, [autoBackup, account, lastBackup, backupNow]);
+
+  // Listen for database changes to trigger auto-backup
+  useEffect(() => {
+    if (!autoBackup || !account) return;
+
+    const unsubscribe = subscribeToDbChanges(() => {
+      maybeAutoBackup();
+    });
+
+    return unsubscribe;
+  }, [autoBackup, account, maybeAutoBackup]);
 
   useEffect(() => {
     const timeout = setTimeout(maybeAutoBackup, 1500);

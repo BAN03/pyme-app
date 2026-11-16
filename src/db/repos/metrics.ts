@@ -1,8 +1,18 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { lastMonths, monthLabelShort, monthRange } from '@/lib/date';
+import { daysUntil, lastMonths, monthLabelShort, monthRange } from '@/lib/date';
 
-import type { HomeData, MonthlyPoint, StockAlert, TopProduct } from '../types';
+import type {
+  ExpiryAlert,
+  HomeData,
+  InventorySummary,
+  MonthlyPoint,
+  StockAlert,
+  TopProduct,
+} from '../types';
+
+/** Items whose expiration is within this many days are surfaced as alerts. */
+const EXPIRY_WINDOW_DAYS = 30;
 
 type SumRow = { total: number | null; count: number };
 
@@ -43,10 +53,11 @@ export async function getHomeData(
   const expenseCents = expenses?.total ?? 0;
   const salesCount = income?.count ?? 0;
 
-  const [series, topProducts, alerts] = await Promise.all([
+  const [series, topProducts, alerts, expiryAlerts] = await Promise.all([
     getMonthlySeries(db, businessId, months, seriesStart),
     getTopProducts(db, businessId, range.from, range.to),
     getStockAlerts(db, businessId),
+    getExpiryAlerts(db, businessId),
   ]);
 
   return {
@@ -61,6 +72,7 @@ export async function getHomeData(
     series,
     topProducts,
     alerts,
+    expiryAlerts,
   };
 }
 
@@ -134,7 +146,7 @@ async function getTopProducts(
   }));
 }
 
-async function getStockAlerts(db: SQLiteDatabase, businessId: string): Promise<StockAlert[]> {
+export async function getStockAlerts(db: SQLiteDatabase, businessId: string): Promise<StockAlert[]> {
   const products = await db.getAllAsync<{
     id: string;
     name: string;
@@ -179,4 +191,89 @@ async function getStockAlerts(db: SQLiteDatabase, businessId: string): Promise<S
   ];
 
   return alerts.sort((a, b) => a.stock - a.minStock - (b.stock - b.minStock)).slice(0, 8);
+}
+
+type ExpiryRow = {
+  id: string;
+  name: string;
+  unit: string;
+  expiry_date: string;
+};
+
+/**
+ * Products and supplies that expire soon (or already expired). Anything beyond
+ * the alert window is ignored so the list stays actionable.
+ */
+export async function getExpiryAlerts(
+  db: SQLiteDatabase,
+  businessId: string,
+): Promise<ExpiryAlert[]> {
+  const products = await db.getAllAsync<ExpiryRow>(
+    `SELECT id, name, unit, expiry_date FROM products
+     WHERE business_id = ? AND deleted_at IS NULL AND active = 1
+       AND expires = 1 AND expiry_date IS NOT NULL`,
+    businessId,
+  );
+
+  const supplies = await db.getAllAsync<ExpiryRow>(
+    `SELECT id, name, unit, expiry_date FROM supplies
+     WHERE business_id = ? AND deleted_at IS NULL
+       AND expires = 1 AND expiry_date IS NOT NULL`,
+    businessId,
+  );
+
+  const alerts: ExpiryAlert[] = [
+    ...products.map((row) => ({
+      id: row.id,
+      kind: 'product' as const,
+      name: row.name,
+      unit: row.unit,
+      expiryDate: row.expiry_date,
+      daysLeft: daysUntil(row.expiry_date),
+    })),
+    ...supplies.map((row) => ({
+      id: row.id,
+      kind: 'supply' as const,
+      name: row.name,
+      unit: row.unit,
+      expiryDate: row.expiry_date,
+      daysLeft: daysUntil(row.expiry_date),
+    })),
+  ];
+
+  return alerts
+    .filter((alert) => alert.daysLeft <= EXPIRY_WINDOW_DAYS)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+    .slice(0, 8);
+}
+
+/** Total value of the current inventory, valued at cost. */
+export async function getInventorySummary(
+  db: SQLiteDatabase,
+  businessId: string,
+): Promise<InventorySummary> {
+  const products = await db.getFirstAsync<{ total: number | null; count: number }>(
+    `SELECT COALESCE(SUM(stock * cost_cents), 0) AS total, COUNT(*) AS count
+     FROM products
+     WHERE business_id = ? AND deleted_at IS NULL AND active = 1`,
+    businessId,
+  );
+
+  const supplies = await db.getFirstAsync<{ total: number | null; count: number }>(
+    `SELECT COALESCE(SUM(stock * unit_cost_cents), 0) AS total, COUNT(*) AS count
+     FROM supplies
+     WHERE business_id = ? AND deleted_at IS NULL`,
+    businessId,
+  );
+
+  const productsValueCents = Math.round(products?.total ?? 0);
+  const suppliesValueCents = Math.round(supplies?.total ?? 0);
+
+  return {
+    productsValueCents,
+    suppliesValueCents,
+    totalValueCents: productsValueCents + suppliesValueCents,
+    productsCount: products?.count ?? 0,
+    suppliesCount: supplies?.count ?? 0,
+  };
 }

@@ -12,10 +12,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { MonthSwitcher } from '@/components/ui/month-switcher';
 import { Screen } from '@/components/ui/screen';
 import { SectionTitle } from '@/components/ui/section-title';
+import { SettingsButton } from '@/components/ui/settings-button';
 import { getHomeData } from '@/db/repos/metrics';
 import { useBusinessQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
-import { currentMonthKey } from '@/lib/date';
+import { currentMonthKey, formatDate } from '@/lib/date';
 import { formatMoney, formatQuantity } from '@/lib/money';
 
 export default function DashboardScreen() {
@@ -42,7 +43,7 @@ export default function DashboardScreen() {
   }
 
   const { business, data: home } = data;
-  const { summary, series, topProducts, alerts } = home;
+  const { summary, series, topProducts, alerts, expiryAlerts } = home;
   const margin =
     summary.incomeCents > 0
       ? Math.round((summary.profitCents / summary.incomeCents) * 100)
@@ -64,11 +65,7 @@ export default function DashboardScreen() {
             {business.name}
           </AppText>
         </View>
-        <View style={[styles.avatar, { backgroundColor: theme.primarySoft }]}>
-          <AppText variant="subtitle" color="primary">
-            {business.name.slice(0, 1).toUpperCase()}
-          </AppText>
-        </View>
+        <SettingsButton />
       </View>
 
       <MonthSwitcher value={month} onChange={setMonth} />
@@ -135,6 +132,84 @@ export default function DashboardScreen() {
           style={styles.flex}
         />
       </View>
+
+      {alerts.length > 0 ? (
+        <>
+          <SectionTitle
+            title="Stock bajo"
+            action={<Badge label={`${alerts.length}`} tone="warning" />}
+          />
+          <Card padded={false}>
+            {alerts.map((alert, index) => (
+              <View
+                key={`${alert.kind}-${alert.id}`}
+                style={[
+                  styles.listRow,
+                  index > 0
+                    ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }
+                    : null,
+                ]}>
+                <Ionicons name="alert-circle" size={20} color={theme.warning} />
+                <View style={styles.rowBody}>
+                  <AppText variant="bodyStrong" numberOfLines={1}>
+                    {alert.name}
+                  </AppText>
+                  <AppText variant="caption" color="textSecondary">
+                    Quedan {formatQuantity(alert.stock)} {alert.unit} · mínimo{' '}
+                    {formatQuantity(alert.minStock)}
+                  </AppText>
+                </View>
+                <Badge label={alert.kind === 'product' ? 'Producto' : 'Insumo'} tone="warning" />
+              </View>
+            ))}
+          </Card>
+        </>
+      ) : null}
+
+      {expiryAlerts.length > 0 ? (
+        <>
+          <SectionTitle
+            title="Próximos a caducar"
+            action={<Badge label={`${expiryAlerts.length}`} tone="danger" />}
+          />
+          <Card padded={false}>
+            {expiryAlerts.map((alert, index) => (
+              <View
+                key={`${alert.kind}-${alert.id}`}
+                style={[
+                  styles.listRow,
+                  index > 0
+                    ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }
+                    : null,
+                ]}>
+                <Ionicons
+                  name={alert.daysLeft < 0 ? 'time' : 'hourglass-outline'}
+                  size={20}
+                  color={theme.danger}
+                />
+                <View style={styles.rowBody}>
+                  <AppText variant="bodyStrong" numberOfLines={1}>
+                    {alert.name}
+                  </AppText>
+                  <AppText variant="caption" color="textSecondary">
+                    {alert.daysLeft < 0
+                      ? `Caducó hace ${Math.abs(alert.daysLeft)} ${
+                          Math.abs(alert.daysLeft) === 1 ? 'día' : 'días'
+                        }`
+                      : alert.daysLeft === 0
+                        ? 'Caduca hoy'
+                        : `Caduca en ${alert.daysLeft} ${
+                            alert.daysLeft === 1 ? 'día' : 'días'
+                          }`}{' '}
+                    · {formatDate(alert.expiryDate)}
+                  </AppText>
+                </View>
+                <Badge label={alert.kind === 'product' ? 'Producto' : 'Insumo'} tone="danger" />
+              </View>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       {!hasActivity ? (
         <Card>
@@ -226,41 +301,6 @@ export default function DashboardScreen() {
         )}
       </Card>
 
-      {alerts.length > 0 ? (
-        <>
-          <SectionTitle
-            title="Stock bajo"
-            action={<Badge label={`${alerts.length}`} tone="warning" />}
-          />
-          <Card padded={false}>
-            {alerts.map((alert, index) => (
-              <View
-                key={`${alert.kind}-${alert.id}`}
-                style={[
-                  styles.listRow,
-                  index > 0
-                    ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }
-                    : null,
-                ]}>
-                <Ionicons name="alert-circle" size={20} color={theme.warning} />
-                <View style={styles.rowBody}>
-                  <AppText variant="bodyStrong" numberOfLines={1}>
-                    {alert.name}
-                  </AppText>
-                  <AppText variant="caption" color="textSecondary">
-                    Quedan {formatQuantity(alert.stock)} {alert.unit} · mínimo{' '}
-                    {formatQuantity(alert.minStock)}
-                  </AppText>
-                </View>
-                <Badge
-                  label={alert.kind === 'product' ? 'Producto' : 'Insumo'}
-                  tone="warning"
-                />
-              </View>
-            ))}
-          </Card>
-        </>
-      ) : null}
     </Screen>
   );
 }
@@ -276,13 +316,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingTop: 4,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   row: {
     flexDirection: 'row',

@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { mapSupply, type SupplyRow } from '../mappers';
 import type { Supply, SupplyInput } from '../types';
 import { getDeviceId, newId, nowISO } from '../util';
+import { notifyDbChangedDebounced } from '@/lib/db-change-listener';
 
 export async function listSupplies(db: SQLiteDatabase, businessId: string): Promise<Supply[]> {
   const rows = await db.getAllAsync<SupplyRow>(
@@ -32,8 +33,9 @@ export async function createSupply(
   const deviceId = await getDeviceId(db);
   await db.runAsync(
     `INSERT INTO supplies
-      (id, business_id, name, unit, stock, min_stock, unit_cost_cents, created_at, updated_at, device_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, business_id, name, unit, stock, min_stock, unit_cost_cents, expires, expiry_date,
+       created_at, updated_at, device_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     businessId,
     input.name.trim(),
@@ -41,10 +43,13 @@ export async function createSupply(
     input.stock,
     input.minStock,
     input.unitCostCents,
+    input.expires ? 1 : 0,
+    input.expires ? input.expiryDate : null,
     now,
     now,
     deviceId,
   );
+  notifyDbChangedDebounced();
   return id;
 }
 
@@ -55,16 +60,20 @@ export async function updateSupply(
 ): Promise<void> {
   await db.runAsync(
     `UPDATE supplies
-     SET name = ?, unit = ?, stock = ?, min_stock = ?, unit_cost_cents = ?, updated_at = ?
+     SET name = ?, unit = ?, stock = ?, min_stock = ?, unit_cost_cents = ?,
+         expires = ?, expiry_date = ?, updated_at = ?
      WHERE id = ?`,
     input.name.trim(),
     input.unit.trim() || 'pza',
     input.stock,
     input.minStock,
     input.unitCostCents,
+    input.expires ? 1 : 0,
+    input.expires ? input.expiryDate : null,
     nowISO(),
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export async function deleteSupply(db: SQLiteDatabase, id: string): Promise<void> {
@@ -75,6 +84,7 @@ export async function deleteSupply(db: SQLiteDatabase, id: string): Promise<void
     now,
     id,
   );
+  notifyDbChangedDebounced();
 }
 
 export type SupplyPurchaseInput = {
