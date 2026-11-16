@@ -118,3 +118,18 @@ export function relativeDayLabel(isoDate: string): string | null {
   if (isoDate === toISODate(yesterday)) return 'Ayer';
   return null;
 }
+
+/** Returns a new local date `days` after the given ISO date. */
+export function addDays(isoDate: string, days: number): string {
+  const date = parseISODate(isoDate);
+  date.setDate(date.getDate() + days);
+  return toISODate(date);
+}
+
+/** Whole days from today until `isoDate`; negative when the date already passed. */
+export function daysUntil(isoDate: string): number {
+  const target = parseISODate(isoDate);
+  const today = parseISODate(todayISO());
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  return Math.round((target.getTime() - today.getTime()) / MS_PER_DAY);
+}

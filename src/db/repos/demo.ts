@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { currentMonthKey, lastMonths, monthRange, todayISO } from '@/lib/date';
+import { addDays, currentMonthKey, lastMonths, monthRange, todayISO } from '@/lib/date';
 
 import { nowISO } from '../util';
 import { createCustomer } from './customers';
@@ -21,24 +21,51 @@ function mulberry32(seed: number) {
   };
 }
 
-const PRODUCTS = [
+type DemoProduct = {
+  name: string;
+  category: string;
+  price: number;
+  cost: number;
+  stock: number;
+  min: number;
+  expiresInDays?: number;
+};
+
+type DemoSupply = {
+  name: string;
+  unit: string;
+  stock: number;
+  min: number;
+  cost: number;
+  expiresInDays?: number;
+};
+
+const PRODUCTS: DemoProduct[] = [
   { name: 'Café americano', category: 'Bebidas', price: 3500, cost: 1200, stock: 40, min: 10 },
   { name: 'Capuchino', category: 'Bebidas', price: 4500, cost: 1600, stock: 28, min: 10 },
   { name: 'Pan de chocolate', category: 'Panadería', price: 2800, cost: 1100, stock: 22, min: 8 },
   { name: 'Croissant', category: 'Panadería', price: 3200, cost: 1300, stock: 60, min: 12 },
-  { name: 'Sándwich', category: 'Comida', price: 5500, cost: 2600, stock: 14, min: 6 },
+  {
+    name: 'Sándwich',
+    category: 'Comida',
+    price: 5500,
+    cost: 2600,
+    stock: 14,
+    min: 6,
+    expiresInDays: 3,
+  },
   { name: 'Agua embotellada', category: 'Bebidas', price: 1500, cost: 600, stock: 80, min: 20 },
   { name: 'Jugo natural', category: 'Bebidas', price: 3000, cost: 1200, stock: 6, min: 10 },
   { name: 'Galleta de avena', category: 'Panadería', price: 1800, cost: 700, stock: 30, min: 8 },
 ];
 
-const SUPPLIES = [
+const SUPPLIES: DemoSupply[] = [
   { name: 'Café en grano', unit: 'kg', stock: 4, min: 2, cost: 38000 },
-  { name: 'Leche entera', unit: 'L', stock: 12, min: 6, cost: 2600 },
+  { name: 'Leche entera', unit: 'L', stock: 12, min: 6, cost: 2600, expiresInDays: 5 },
   { name: 'Azúcar', unit: 'kg', stock: 5, min: 2, cost: 3200 },
   { name: 'Vasos 12 oz', unit: 'pza', stock: 150, min: 200, cost: 120 },
   { name: 'Bolsas de papel', unit: 'pza', stock: 300, min: 100, cost: 80 },
-  { name: 'Chocolate en polvo', unit: 'kg', stock: 1.5, min: 1, cost: 21000 },
+  { name: 'Chocolate en polvo', unit: 'kg', stock: 1.5, min: 1, cost: 21000, expiresInDays: 20 },
 ];
 
 const CUSTOMERS = [
@@ -72,6 +99,8 @@ export async function seedDemoData(db: SQLiteDatabase, businessId: string): Prom
   const random = mulberry32(42);
   const pick = <T>(list: T[]): T => list[Math.floor(random() * list.length)];
 
+  const seedDate = todayISO();
+
   const productIds: string[] = [];
   for (const product of PRODUCTS) {
     const id = await createProduct(db, businessId, {
@@ -83,6 +112,8 @@ export async function seedDemoData(db: SQLiteDatabase, businessId: string): Prom
       costCents: product.cost,
       stock: product.stock,
       minStock: product.min,
+      expires: product.expiresInDays != null,
+      expiryDate: product.expiresInDays != null ? addDays(seedDate, product.expiresInDays) : null,
     });
     productIds.push(id);
   }
@@ -94,6 +125,8 @@ export async function seedDemoData(db: SQLiteDatabase, businessId: string): Prom
       stock: supply.stock,
       minStock: supply.min,
       unitCostCents: supply.cost,
+      expires: supply.expiresInDays != null,
+      expiryDate: supply.expiresInDays != null ? addDays(seedDate, supply.expiresInDays) : null,
     });
   }
 

@@ -13,7 +13,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FormScreen } from '@/components/ui/form-screen';
 import { Segmented } from '@/components/ui/segmented';
 import { TextField } from '@/components/ui/text-field';
-import { listCustomers } from '@/db/repos/customers';
 import { listProducts } from '@/db/repos/products';
 import { createSale } from '@/db/repos/sales';
 import { useBusinessQuery } from '@/hooks/use-query';
@@ -44,21 +43,16 @@ export default function NewSaleScreen() {
   const db = useSQLiteContext();
 
   const { data } = useBusinessQuery(async (currentDb, business) => {
-    const [products, customers] = await Promise.all([
-      listProducts(currentDb, business.id),
-      listCustomers(currentDb, business.id),
-    ]);
-    return { products, customers };
+    const products = await listProducts(currentDb, business.id);
+    return { products };
   });
 
   const business = data?.business;
   const products = data?.data.products ?? [];
-  const customers = data?.data.customers ?? [];
   const currency = business?.currency ?? 'MXN';
 
   const [mode, setMode] = useState<Mode>('productos');
   const [date, setDate] = useState(todayISO());
-  const [customerId, setCustomerId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const [note, setNote] = useState('');
   const [items, setItems] = useState<DraftItem[]>([]);
@@ -117,6 +111,10 @@ export default function NewSaleScreen() {
       freeTotalCents: mode === 'libre' ? freeTotalCents : undefined,
       items: mode === 'productos' ? items : undefined,
     });
+    if (mode === 'productos' && items.length === 0) {
+      result.valid = false;
+      result.errors.items = 'Agrega al menos un producto con cantidad mayor que cero.';
+    }
     setErrors(result.errors);
     return result.valid;
   };
@@ -129,7 +127,7 @@ export default function NewSaleScreen() {
     try {
       await createSale(db, business.id, {
         date,
-        customerId: customerId || null,
+        customerId: null,
         paymentMethod,
         note: note.trim() || null,
         items:
@@ -212,7 +210,11 @@ export default function NewSaleScreen() {
                 })}
               </View>
             )}
-            {errors.freeTotalCents && <AppText variant="caption" color="danger">{errors.freeTotalCents}</AppText>}
+            {errors.items ? (
+              <AppText variant="caption" color="danger">
+                {errors.items}
+              </AppText>
+            ) : null}
           </View>
 
           {items.length > 0 ? (
@@ -275,20 +277,6 @@ export default function NewSaleScreen() {
           error={errors.freeTotalCents}
         />
       )}
-
-      <View style={styles.fieldGap}>
-        <AppText variant="label" color="textSecondary">
-          Cliente
-        </AppText>
-        <ChoiceChips
-          options={[
-            { value: '', label: 'Cliente general' },
-            ...customers.map((customer) => ({ value: customer.id, label: customer.name })),
-          ]}
-          value={customerId}
-          onChange={setCustomerId}
-        />
-      </View>
 
       <View style={styles.fieldGap}>
         <AppText variant="label" color="textSecondary">

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChoiceChips } from '@/components/ui/choice-chips';
 import { Screen } from '@/components/ui/screen';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionTitle } from '@/components/ui/section-title';
 import { TextField } from '@/components/ui/text-field';
 import { updateBusiness } from '@/db/repos/business';
@@ -18,13 +20,12 @@ import { seedDemoData } from '@/db/repos/demo';
 import { createEmployee, deleteEmployee, listEmployees } from '@/db/repos/employees';
 import { resetDatabase } from '@/db/schema';
 import type { Business } from '@/db/types';
+import { useBackup } from '@/hooks/use-backup';
 import { useBusinessQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
-import { useBackup } from '@/hooks/use-backup';
 import { CURRENCIES } from '@/lib/money';
-import { validateBusinessInput, validateEmployeeInput } from '@/lib/validation';
 import { requestNotificationPermissions } from '@/lib/notifications';
-import * as Notifications from 'expo-notifications';
+import { sanitizeNameInput, validateBusinessInput, validateEmployeeInput } from '@/lib/validation';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -86,7 +87,7 @@ export default function SettingsScreen() {
     if (!business) return;
     Alert.alert(
       'Cargar datos de ejemplo',
-      'Se agregarán productos, clientes, ventas y gastos de los últimos 6 meses. Solo funciona si tu catálogo está vacío.',
+      'Se agregarán productos, insumos, ventas y gastos de los últimos 6 meses. Solo funciona si tu catálogo está vacío.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -110,7 +111,7 @@ export default function SettingsScreen() {
   const confirmReset = () => {
     Alert.alert(
       'Vaciar todos los datos',
-      'Se borrarán productos, insumos, clientes, ventas y gastos de este dispositivo. Esta acción no se puede deshacer.',
+      'Se borrarán productos, insumos, ventas y gastos de este dispositivo. Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -128,17 +129,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <View style={styles.flex}>
-          <AppText variant="title">Ajustes</AppText>
-          <AppText variant="caption" color="textSecondary">
-            Tu negocio, respaldo y equipo
-          </AppText>
-        </View>
-        <View style={[styles.headerIcon, { backgroundColor: theme.primarySoft }]}>
-          <Ionicons name="settings-outline" size={20} color={theme.primary} />
-        </View>
-      </View>
+      <ScreenHeader title="Ajustes" subtitle="Tu negocio, respaldo y equipo" />
 
       <SectionTitle title="Negocio" />
       {business ? (
@@ -203,7 +194,7 @@ export default function SettingsScreen() {
           <TextField
             label="Nombre"
             value={employeeName}
-            onChangeText={setEmployeeName}
+            onChangeText={(value) => setEmployeeName(sanitizeNameInput(value))}
             placeholder="Nombre del empleado"
             error={employeeErrors.name}
           />
@@ -300,11 +291,16 @@ function BusinessForm({ business, onSaved }: { business: Business; onSaved: () =
 
   return (
     <Card style={styles.form}>
-      <TextField label="Nombre del negocio" value={name} onChangeText={setName} error={errors.name} />
+      <TextField
+        label="Nombre del negocio"
+        value={name}
+        onChangeText={(value) => setName(sanitizeNameInput(value))}
+        error={errors.name}
+      />
       <TextField
         label="Tu nombre"
         value={ownerName}
-        onChangeText={setOwnerName}
+        onChangeText={(value) => setOwnerName(sanitizeNameInput(value))}
         placeholder="Opcional"
         error={errors.ownerName}
       />
@@ -373,7 +369,8 @@ function NotificationSettings() {
     return (
       <Card style={styles.form}>
         <AppText variant="body" color="textSecondary">
-          Conecta tu cuenta de Google y activa el respaldo automático para recibir notificaciones de stock bajo.
+          Conecta tu cuenta de Google y activa el respaldo automático para recibir notificaciones de
+          stock bajo.
         </AppText>
       </Card>
     );
@@ -405,19 +402,6 @@ function NotificationSettings() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingTop: 4,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   form: {
     gap: 14,
   },

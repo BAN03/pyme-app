@@ -35,8 +35,8 @@ export async function createProduct(
   await db.runAsync(
     `INSERT INTO products
       (id, business_id, name, category, sku, unit, price_cents, cost_cents, stock, min_stock,
-       active, created_at, updated_at, device_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+       expires, expiry_date, active, created_at, updated_at, device_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
     id,
     businessId,
     input.name.trim(),
@@ -47,6 +47,8 @@ export async function createProduct(
     input.costCents,
     input.stock,
     input.minStock,
+    input.expires ? 1 : 0,
+    input.expires ? input.expiryDate : null,
     now,
     now,
     deviceId,
@@ -63,7 +65,7 @@ export async function updateProduct(
   await db.runAsync(
     `UPDATE products
      SET name = ?, category = ?, sku = ?, unit = ?, price_cents = ?, cost_cents = ?,
-         stock = ?, min_stock = ?, updated_at = ?
+         stock = ?, min_stock = ?, expires = ?, expiry_date = ?, updated_at = ?
      WHERE id = ?`,
     input.name.trim(),
     input.category?.trim() || null,
@@ -73,6 +75,8 @@ export async function updateProduct(
     input.costCents,
     input.stock,
     input.minStock,
+    input.expires ? 1 : 0,
+    input.expires ? input.expiryDate : null,
     nowISO(),
     id,
   );

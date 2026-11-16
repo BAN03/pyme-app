@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_NAME = 'pyme.db';
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 
 export const DEFAULT_BUSINESS_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -188,6 +188,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
     version = 2;
   }
 
+  if (version === 2) {
+    await migrateV2ToV3(db);
+    version = 3;
+  }
+
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
 }
 
@@ -368,6 +373,24 @@ async function migrateV1ToV2(db: SQLiteDatabase): Promise<void> {
     INSERT INTO business_new SELECT * FROM business;
     DROP TABLE business;
     ALTER TABLE business_new RENAME TO business;
+  `);
+}
+
+/**
+ * Adds optional expiration tracking to products and supplies. `expires` is a
+ * boolean flag (0/1) and `expiry_date` is only meaningful when the flag is set.
+ */
+async function migrateV2ToV3(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    ALTER TABLE products
+      ADD COLUMN expires INTEGER NOT NULL DEFAULT 0 CHECK (expires IN (0, 1));
+    ALTER TABLE products
+      ADD COLUMN expiry_date TEXT;
+
+    ALTER TABLE supplies
+      ADD COLUMN expires INTEGER NOT NULL DEFAULT 0 CHECK (expires IN (0, 1));
+    ALTER TABLE supplies
+      ADD COLUMN expiry_date TEXT;
   `);
 }
 

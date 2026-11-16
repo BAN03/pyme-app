@@ -51,21 +51,25 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="clientes"
+        name="tareas"
         options={{
-          title: 'Clientes',
+          title: 'Tareas',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color as string} />
+            <Ionicons
+              name={focused ? 'checkbox' : 'checkbox-outline'}
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="ajustes"
+        name="informes"
         options={{
-          title: 'Ajustes',
+          title: 'Informes',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name={focused ? 'settings' : 'settings-outline'}
+              name={focused ? 'stats-chart' : 'stats-chart-outline'}
               size={size}
               color={color as string}
             />

@@ -2,6 +2,8 @@
  * Shared validation utilities for forms and database constraints.
  */
 
+import { todayISO } from '@/lib/date';
+
 export const VALIDATION_LIMITS = {
   customer: {
     name: { min: 1, max: 100 },
@@ -69,6 +71,66 @@ export function validateLength(
 }
 
 /**
+ * Names only accept letters (including Spanish accents), spaces and a few
+ * harmless separators. Numbers and other symbols are rejected to avoid
+ * polluting the database with invalid business data.
+ */
+const NAME_ALLOWED = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s.'&-]+$/;
+const NAME_DISALLOWED = /[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s.'&-]/g;
+
+/** Removes any character that is not allowed in a name while the user types. */
+export function sanitizeNameInput(value: string): string {
+  return value.replace(NAME_DISALLOWED, '');
+}
+
+/**
+ * Validates a name-like value: length plus no numbers and no special characters.
+ */
+export function validateNameValue(
+  value: string,
+  min: number,
+  max: number,
+  fieldName: string,
+): string | null {
+  const lengthError = validateLength(value, min, max, fieldName);
+  if (lengthError) return lengthError;
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+
+  if (/\d/.test(trimmed)) {
+    return `${fieldName} no puede contener números.`;
+  }
+  if (!NAME_ALLOWED.test(trimmed)) {
+    return `${fieldName} solo puede contener letras y espacios.`;
+  }
+  return null;
+}
+
+/**
+ * Validates an optional expiration date. When `expires` is true the date is
+ * required and cannot be earlier than today.
+ */
+export function validateExpiry(
+  expires: boolean,
+  expiryDate: string | null,
+  fieldName = 'Fecha de caducidad',
+): string | null {
+  if (!expires) return null;
+
+  if (!expiryDate || !expiryDate.trim()) {
+    return `${fieldName}: indica cuándo caduca.`;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
+    return `${fieldName} no es válida.`;
+  }
+  if (expiryDate < todayISO()) {
+    return `${fieldName} no puede ser anterior a hoy.`;
+  }
+  return null;
+}
+
+/**
  * Validates email format.
  */
 export function validateEmail(email: string): string | null {
@@ -118,14 +180,14 @@ export function validatePositiveAmount(
 }
 
 /**
- * Validates a non-negative quantity.
+ * Validates a quantity that must be strictly greater than zero.
  */
 export function validateQuantity(
   quantity: number,
   fieldName: string = 'Cantidad',
 ): string | null {
-  if (!Number.isFinite(quantity) || quantity < 0) {
-    return `${fieldName} no puede ser negativa.`;
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return `${fieldName} debe ser mayor que cero.`;
   }
   if (quantity > 999999) {
     return `${fieldName} excede el máximo permitido.`;
@@ -190,7 +252,7 @@ export function validateCustomerInput(input: {
 }): ValidationResult {
   const result = createValidationResult();
 
-  const nameError = validateLength(
+  const nameError = validateNameValue(
     input.name,
     VALIDATION_LIMITS.customer.name.min,
     VALIDATION_LIMITS.customer.name.max,
@@ -233,10 +295,12 @@ export function validateProductInput(input: {
   costCents: number;
   stock: number;
   minStock: number;
+  expires?: boolean;
+  expiryDate?: string | null;
 }): ValidationResult {
   const result = createValidationResult();
 
-  const nameError = validateLength(
+  const nameError = validateNameValue(
     input.name,
     VALIDATION_LIMITS.product.name.min,
     VALIDATION_LIMITS.product.name.max,
@@ -245,7 +309,7 @@ export function validateProductInput(input: {
   if (nameError) addValidationError(result, 'name', nameError);
 
   if (input.category) {
-    const catError = validateLength(
+    const catError = validateNameValue(
       input.category,
       0,
       VALIDATION_LIMITS.product.category.max,
@@ -253,6 +317,9 @@ export function validateProductInput(input: {
     );
     if (catError) addValidationError(result, 'category', catError);
   }
+
+  const expiryError = validateExpiry(input.expires ?? false, input.expiryDate ?? null);
+  if (expiryError) addValidationError(result, 'expiryDate', expiryError);
 
   if (input.sku) {
     const skuError = validateLength(
@@ -296,16 +363,21 @@ export function validateSupplyInput(input: {
   unitCostCents: number;
   stock: number;
   minStock: number;
+  expires?: boolean;
+  expiryDate?: string | null;
 }): ValidationResult {
   const result = createValidationResult();
 
-  const nameError = validateLength(
+  const nameError = validateNameValue(
     input.name,
     VALIDATION_LIMITS.supply.name.min,
     VALIDATION_LIMITS.supply.name.max,
     'Nombre',
   );
   if (nameError) addValidationError(result, 'name', nameError);
+
+  const expiryError = validateExpiry(input.expires ?? false, input.expiryDate ?? null);
+  if (expiryError) addValidationError(result, 'expiryDate', expiryError);
 
   const unitError = validateLength(
     input.unit,
@@ -413,7 +485,7 @@ export function validateEmployeeInput(input: {
 }): ValidationResult {
   const result = createValidationResult();
 
-  const nameError = validateLength(
+  const nameError = validateNameValue(
     input.name,
     VALIDATION_LIMITS.employee.name.min,
     VALIDATION_LIMITS.employee.name.max,
@@ -439,7 +511,7 @@ export function validateBusinessInput(input: {
 }): ValidationResult {
   const result = createValidationResult();
 
-  const nameError = validateLength(
+  const nameError = validateNameValue(
     input.name,
     VALIDATION_LIMITS.business.name.min,
     VALIDATION_LIMITS.business.name.max,
@@ -448,7 +520,7 @@ export function validateBusinessInput(input: {
   if (nameError) addValidationError(result, 'name', nameError);
 
   if (input.ownerName) {
-    const ownerNameError = validateLength(
+    const ownerNameError = validateNameValue(
       input.ownerName,
       0,
       VALIDATION_LIMITS.business.ownerName.max,

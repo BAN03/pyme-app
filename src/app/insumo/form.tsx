@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { FormScreen } from '@/components/ui/form-screen';
+import { SelectField } from '@/components/ui/select-field';
 import { TextField } from '@/components/ui/text-field';
 import { getBusiness } from '@/db/repos/business';
 import {
@@ -17,8 +19,10 @@ import {
 import type { Business, Supply } from '@/db/types';
 import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
+import { todayISO } from '@/lib/date';
 import { centsToInput, currencySymbol, parseMoney, parseQuantity } from '@/lib/money';
-import { validateSupplyInput } from '@/lib/validation';
+import { UNITS } from '@/lib/units';
+import { sanitizeNameInput, validateSupplyInput } from '@/lib/validation';
 
 export default function SupplyFormScreen() {
   const theme = useTheme();
@@ -47,6 +51,7 @@ export default function SupplyFormScreen() {
 }
 
 function SupplyForm({ business, supply }: { business: Business; supply: Supply | null }) {
+  const theme = useTheme();
   const router = useRouter();
   const db = useSQLiteContext();
   const id = supply?.id;
@@ -56,6 +61,8 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
   const [unitCost, setUnitCost] = useState(supply ? centsToInput(supply.unitCostCents) : '');
   const [stock, setStock] = useState(supply ? String(supply.stock) : '');
   const [minStock, setMinStock] = useState(supply ? String(supply.minStock) : '');
+  const [expires, setExpires] = useState(supply?.expires ?? false);
+  const [expiryDate, setExpiryDate] = useState(supply?.expiryDate ?? todayISO());
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -68,6 +75,8 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
       unitCostCents: parseMoney(unitCost),
       stock: parseQuantity(stock),
       minStock: parseQuantity(minStock),
+      expires,
+      expiryDate: expiryDate || null,
     });
     setErrors(result.errors);
     return result.valid;
@@ -84,6 +93,8 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
         stock: parseQuantity(stock),
         minStock: parseQuantity(minStock),
         unitCostCents: parseMoney(unitCost),
+        expires,
+        expiryDate: expires ? expiryDate || null : null,
       };
 
       if (id) {
@@ -134,18 +145,17 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
       <TextField
         label="Nombre"
         value={name}
-        onChangeText={setName}
+        onChangeText={(value) => setName(sanitizeNameInput(value))}
         placeholder="Ej. Café en grano"
         error={errors.name}
       />
 
       <View style={styles.row}>
-        <TextField
+        <SelectField
           label="Unidad"
           value={unit}
-          onChangeText={setUnit}
-          placeholder="kg, L, pza"
-          autoCapitalize="none"
+          options={UNITS}
+          onChange={setUnit}
           containerStyle={styles.flex}
           error={errors.unit}
         />
@@ -182,6 +192,33 @@ function SupplyForm({ business, supply }: { business: Business; supply: Supply |
         />
       </View>
 
+      <View style={[styles.expiryCard, { borderColor: theme.border }]}>
+        <View style={styles.switchRow}>
+          <View style={styles.flex}>
+            <AppText variant="bodyStrong">¿Caduca?</AppText>
+            <AppText variant="caption" color="textSecondary">
+              Actívalo para vigilar la fecha de caducidad de este insumo.
+            </AppText>
+          </View>
+          <Switch
+            value={expires}
+            onValueChange={setExpires}
+            trackColor={{ false: theme.backgroundElement, true: theme.primary }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+
+        {expires ? (
+          <DateField
+            label="Fecha de caducidad"
+            value={expiryDate}
+            onChange={setExpiryDate}
+            minimumDate={todayISO()}
+            error={errors.expiryDate}
+          />
+        ) : null}
+      </View>
+
       <AppText variant="caption" color="textSecondary">
         Para sumar existencias usa el botón Comprar en la pestaña Catálogo. Así también se registra
         el gasto.
@@ -203,5 +240,16 @@ const styles = StyleSheet.create({
   loading: {
     paddingTop: 80,
     alignItems: 'center',
+  },
+  expiryCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 14,
+    gap: 14,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
 });

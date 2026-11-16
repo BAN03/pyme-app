@@ -16,14 +16,29 @@ type DateFieldProps = {
   value: string;
   onChange: (isoDate: string) => void;
   error?: string;
+  /** Earliest selectable date (ISO). When set, future dates become selectable. */
+  minimumDate?: string;
+  /** Latest selectable date (ISO). Defaults to today unless `minimumDate` is set. */
+  maximumDate?: string;
 };
 
-export function DateField({ label = 'Fecha', value, onChange, error }: DateFieldProps) {
+export function DateField({
+  label = 'Fecha',
+  value,
+  onChange,
+  error,
+  minimumDate,
+  maximumDate,
+}: DateFieldProps) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const [show, setShow] = useState(false);
   const date = parseISODate(value);
   const today = parseISODate(todayISO());
+  const minDate = minimumDate ? parseISODate(minimumDate) : undefined;
+  // Without an explicit maximum, dates are capped at today (records are not
+  // created in the future) — unless a minimum is set, as with expiry dates.
+  const maxDate = maximumDate ? parseISODate(maximumDate) : minimumDate ? undefined : today;
   const relative = relativeDayLabel(value);
   const borderColor = error ? theme.danger : theme.border;
 
@@ -49,7 +64,8 @@ export function DateField({ label = 'Fecha', value, onChange, error }: DateField
             value={date}
             mode="date"
             display="compact"
-            maximumDate={today}
+            minimumDate={minDate}
+            maximumDate={maxDate}
             themeVariant={scheme === 'dark' ? 'dark' : 'light'}
             accentColor={theme.primary}
             onChange={handleChange}
@@ -73,7 +89,8 @@ export function DateField({ label = 'Fecha', value, onChange, error }: DateField
               value={date}
               mode="date"
               display="default"
-              maximumDate={today}
+              minimumDate={minDate}
+              maximumDate={maxDate}
               onChange={handleChange}
             />
           ) : null}

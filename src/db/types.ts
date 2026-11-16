@@ -26,6 +26,8 @@ export type Product = {
   costCents: number;
   stock: number;
   minStock: number;
+  expires: boolean;
+  expiryDate: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -40,6 +42,8 @@ export type ProductInput = {
   costCents: number;
   stock: number;
   minStock: number;
+  expires: boolean;
+  expiryDate: string | null;
 };
 
 export type Supply = {
@@ -50,6 +54,8 @@ export type Supply = {
   stock: number;
   minStock: number;
   unitCostCents: number;
+  expires: boolean;
+  expiryDate: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -60,6 +66,8 @@ export type SupplyInput = {
   stock: number;
   minStock: number;
   unitCostCents: number;
+  expires: boolean;
+  expiryDate: string | null;
 };
 
 export type SupplyMovement = {
@@ -202,9 +210,28 @@ export type StockAlert = {
   unit: string;
 };
 
+export type ExpiryAlert = {
+  id: string;
+  kind: 'product' | 'supply';
+  name: string;
+  expiryDate: string;
+  /** Days until expiration; negative when already expired. */
+  daysLeft: number;
+  unit: string;
+};
+
+export type InventorySummary = {
+  productsValueCents: number;
+  suppliesValueCents: number;
+  totalValueCents: number;
+  productsCount: number;
+  suppliesCount: number;
+};
+
 export type HomeData = {
   summary: MonthSummary;
   series: MonthlyPoint[];
   topProducts: TopProduct[];
   alerts: StockAlert[];
+  expiryAlerts: ExpiryAlert[];
 };

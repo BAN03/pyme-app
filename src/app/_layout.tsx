@@ -11,6 +11,11 @@ import { NotificationProvider } from '@/hooks/use-notifications';
 
 SplashScreen.preventAutoHideAsync();
 
+export const unstable_settings = {
+  // The welcome screen decides whether to continue into the tabs.
+  initialRouteName: 'bienvenida',
+};
+
 async function initialize(db: SQLiteDatabase) {
   try {
     await initDatabase(db);
@@ -50,13 +55,14 @@ export default function RootLayout() {
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.background },
               }}>
+              <Stack.Screen name="bienvenida" options={{ animation: 'fade' }} />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="ajustes" options={{ presentation: 'modal' }} />
               <Stack.Screen name="venta/nueva" options={{ presentation: 'modal' }} />
               <Stack.Screen name="gasto/form" options={{ presentation: 'modal' }} />
               <Stack.Screen name="producto/form" options={{ presentation: 'modal' }} />
               <Stack.Screen name="insumo/form" options={{ presentation: 'modal' }} />
               <Stack.Screen name="insumo/compra" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="cliente/form" options={{ presentation: 'modal' }} />
               <Stack.Screen name="respaldo/restaurar" options={{ presentation: 'modal' }} />
             </Stack>
           </ThemeProvider>
